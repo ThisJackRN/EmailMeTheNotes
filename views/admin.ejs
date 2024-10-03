@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <% if (typeof isLoggedIn !== 'undefined' && isLoggedIn) { %>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Page</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .file-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        .delete-button {
+            margin-left: 10px;
+        }
+        .delete-all-button {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <%- include('header.ejs') %>
+    <div class="container mt-5">
+        <h1 class="mb-4">Admin Page</h1>
+        <ul class="file-list">
+            <% files.forEach(function(file) { %>
+                <li class="file-item">
+                    <span><%= file %></span>
+                    <button class="btn btn-danger delete-button" onclick="deleteFile('<%= file %>')">Delete</button>
+                </li>
+            <% }); %>
+        </ul>
+        <button class="btn btn-danger delete-all-button" onclick="deleteAllFiles()">Delete All Files</button>
+    </div>
+
+    <script>
+        function deleteFile(fileName) {
+            fetch(`/delete-file/${fileName}`, {
+                method: 'DELETE'
+            }).then(response => {
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Failed to delete file');
+                }
+            });
+        }
+
+        function deleteAllFiles() {
+            fetch('/delete-all-files', {
+                method: 'DELETE'
+            }).then(response => {
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Failed to delete all files');
+                }
+            });
+        }
+    </script>
+    <%- include('footer.ejs') %>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <% } else { %>
+        <script>
+            window.location.href = '/';
+        </script>
+    <% } %>
+</body>
+</html>

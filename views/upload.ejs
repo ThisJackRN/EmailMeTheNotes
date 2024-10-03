@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<body>
+    <% if (typeof isLoggedIn !== 'undefined' && isLoggedIn) { %>
+        <%- include('header.ejs') %>
+        <div class="container mt-5">
+            <h1 class="mb-4">Upload Files</h1>
+            <form action="/upload" method="post" enctype="multipart/form-data" class="mb-4">
+                <div class="form-group">
+                    <input type="file" name="file" accept=".pdf,.docx,.txt,.jpg,.png" class="form-control-file" required>
+                </div>
+                <div class="form-group">
+                    <input type="text" name="name" placeholder="Enter file name" class="form-control">
+                </div>
+                <div class="form-group">
+                    <textarea name="description" placeholder="Enter file description" class="form-control" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Upload</button>
+            </form>
+
+            <h2 class="mb-4">Uploaded Files</h2>
+            <div id="file-list" class="list-group">
+                <% files.forEach(file => { %>
+                    <div class="folder list-group-item d-flex align-items-center">
+                        <% if (file.type === 'pdf') { %>
+                            <img src="../static/pdf-icon.png" alt="PDF Icon">
+                        <% } else if (file.type === 'docx') { %>
+                            <img src="../static/docx-icon.png" alt="DOCX Icon">
+                        <% } else if (file.type === 'txt') { %>
+                            <a href="<%= file.url %>" target="_blank" class="ml-2"><%= file.name %></a>
+                            <p class="ml-2"><%= file.description %></p>
+                        <% } else if (file.type === 'jpg' || file.type === 'png') { %>
+                            <img src="../static/image-icon.png" alt="Image Icon">
+                        <% } else { %>
+                            <img src="../static/docx-icon.png" alt="DOCX Icon">
+                        <% } %>
+                        <a href="<%= file.url %>" target="_blank" class="ml-2"><%= file.name %></a>
+                    </div>
+                <% }) %>
+            </div>
+        </div>
+        <%- include('footer.ejs') %>
+    <% } else { %>
+        <script>
+            window.location.href = '/';
+        </script>
+    <% } %>
+</body>
+</html>
