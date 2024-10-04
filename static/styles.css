@@ -102,3 +102,8 @@ p, div {
         font-size: 8pt;
     }
 }
+
+
+.dark_folder span {
+    color: white;
+}

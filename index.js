@@ -311,6 +311,7 @@ app.delete('/delete-all-files', (req, res) => {
 app.get('/view/:filename', (req, res) => {
   const filename = req.params.filename;
   const filePath = path.join(uploadDir, filename);
+  const isLoggedIn = req.session.userId ? true : false; // Check if the user is authenticated
 
   fs.access(filePath, fs.constants.F_OK, (err) => {
     if (err) {
@@ -329,7 +330,7 @@ app.get('/view/:filename', (req, res) => {
           .then(result => {
             console.log('Raw text extraction successful:', result.value); // Debugging statement
             const rawText = result.value.trim() ? result.value : 'No content available';
-            res.render('viewer', { title: 'View File', content: `<pre>${rawText}</pre>` });
+            res.render('viewer', { title: 'View File', content: `<pre>${rawText}</pre>`, isLoggedIn });
           })
           .catch(err => {
             console.error('Error extracting raw text from .docx file:', err);
@@ -338,20 +339,22 @@ app.get('/view/:filename', (req, res) => {
       });
     } else {
       const fileUrl = `/uploads/${filename}`;
-      res.render('viewer', { title: 'View File', content: `<iframe src="${fileUrl}" width="100%" height="600px"></iframe>` });
+      res.render('viewer', { title: 'View File', content: `<iframe src="${fileUrl}" width="100%" height="600px"></iframe>`, isLoggedIn });
     }
   });
 });
 
 // Route to toggle dark mode
 app.post('/toggle-dark-mode', (req, res) => {
-  const isDarkMode = req.body.isDarkMode === 'true';
-  req.session.isDarkMode = isDarkMode;
+  const isDarkMode = req.body.isDarkMode === 'true'; // Capture the toggle state
+  res.cookie('darkMode', isDarkMode, { maxAge: 365 * 24 * 60 * 60 * 1000, httpOnly: false }); // Set cookie for one year
   res.sendStatus(200);
 });
 
-// Middleware to set dark mode based on session
+// Middleware to check dark mode cookie
 app.use((req, res, next) => {
-  res.locals.isDarkMode = req.session.isDarkMode || false;
+  const darkMode = req.cookies.darkMode === 'true'; // Check if darkMode cookie exists and is set to true
+  res.locals.isDarkMode = darkMode; // Pass it to the views
   next();
 });
+

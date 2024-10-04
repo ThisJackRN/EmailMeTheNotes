@@ -1,130 +1,197 @@
-<footer id="footer" style="position: fixed; bottom: 0; width: 100%; text-align: center; padding: 10px;">
-    <p>&copy;2025 EmailMeTheNotes! <a href="/beta">(Beta)<a> product</a> </a></p>
-    <button id="darkModeToggle">Toggle Dark Mode</button>
+<div class="page-container">
+    <div class="main-content">
+        <!-- Main content goes here -->
+    </div>
+    <footer id="footer" class="bg-light-custom text-center text-lg-start" style="position: relative; width: 100%;">
+        <!-- Footer content -->
+        <div class="text-center p-3">
+            &copy;2025 EmailMeTheNotes! <a href="/beta">(Beta)</a> product
+        </div>
+        <button id="darkModeToggle" class="btn btn-secondary mb-3">Toggle Dark Mode</button>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const toggleButton = document.getElementById('darkModeToggle');
-            const footer = document.getElementById('footer');
-            const paper = document.querySelector('.paper-page');
-            const fileSystem = document.querySelector('.file-system');
-            const folders = document.querySelectorAll('.folder');
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                const toggleButton = document.getElementById('darkModeToggle');
+                const footer = document.getElementById('footer');
+                const paper = document.querySelector('.paper-page');
+                const fileSystem = document.querySelector('.file-system');
 
-            const removeDarkMode = () => {
-                document.body.classList.remove('dark-mode');
-                footer.classList.remove('dark-mode');
-                if (paper) {
-                    paper.classList.remove('dark_paper-page');
-                }
-                if (fileSystem) {
-                    fileSystem.classList.remove('dark_file-system');
-                }
-                toggleNavbarClass(false);
-            };
-
-
-            const applyDarkMode = () => {
-                document.body.classList.add('dark-mode');
-                footer.classList.add('dark-mode');
-                if (paper) {
-                    paper.classList.add('dark_paper-page');
-                }
-                if (fileSystem) {
-                    fileSystem.classList.add('dark_file-system');
-                }
-                toggleNavbarClass(true);
-            };
-
-            const toggleNavbarClass = (isDarkMode) => {
-                const navbar = document.querySelector('.navbar');
-                if (navbar) {
-                    if (isDarkMode) {
-                        navbar.classList.remove('navbar-light', 'bg-light');
-                        navbar.classList.add('navbar-dark', 'bg-dark');
-                    } else {
-                        navbar.classList.remove('navbar-dark', 'bg-dark');
-                        navbar.classList.add('navbar-light', 'bg-light');
+                // Define functions first
+                const removeDarkMode = () => {
+                    document.body.classList.remove('dark-mode');
+                    footer.classList.remove('bg-dark', 'text-white');
+                    footer.classList.add('bg-light-custom', 'text-dark-custom');
+                    if (paper) {
+                        paper.classList.remove('dark_paper-page');
                     }
-                }
-            };
+                    if (fileSystem) {
+                        fileSystem.classList.remove('dark_file-system');
+                    }
+                    document.querySelectorAll('.folder').forEach(folder => {
+                        folder.classList.remove('dark_folder');
+                        folder.querySelectorAll('span').forEach(span => {
+                            if (span.style.fontSize === '10px') {
+                                span.style.color = '#666';
+                            }
+                        });
+                    });
+                    toggleNavbarClass(false);
+                };
 
-            toggleButton.addEventListener('click', () => {
-                if (document.body.classList.contains('dark-mode')) {
-                    removeDarkMode();
-                    localStorage.setItem('darkMode', 'disabled');
-                } else {
+                const applyDarkMode = () => {
+                    document.body.classList.add('dark-mode');
+                    footer.classList.remove('bg-light-custom', 'text-dark-custom');
+                    footer.classList.add('bg-dark', 'text-white');
+                    if (paper) {
+                        paper.classList.add('dark_paper-page');
+                    }
+                    if (fileSystem) {
+                        fileSystem.classList.add('dark_file-system');
+                    }
+                    applyDarkModeToFolders();
+                    toggleNavbarClass(true);
+                };
+
+                const applyDarkModeToFolders = () => {
+                    document.querySelectorAll('.folder').forEach(folder => {
+                        folder.classList.add('dark_folder');
+                        folder.querySelectorAll('span').forEach(span => {
+                            if (span.style.fontSize === '10px') {
+                                span.style.color = '#aaa'; // Lighter gray for username in dark mode
+                            }
+                        });
+                    });
+                };
+
+                const toggleNavbarClass = (isDarkMode) => {
+                    const navbar = document.querySelector('.navbar');
+                    if (navbar) {
+                        if (isDarkMode) {
+                            navbar.classList.remove('navbar-light-custom', 'bg-light-custom');
+                            navbar.classList.add('navbar-dark', 'bg-dark');
+                        } else {
+                            navbar.classList.remove('navbar-dark', 'bg-dark');
+                            navbar.classList.add('navbar-light-custom', 'bg-light-custom');
+                        }
+                    }
+                };
+
+                // Check localStorage for dark mode preference
+                const darkModeEnabled = localStorage.getItem('darkMode') === 'enabled';
+
+                // Apply dark mode if localStorage indicates it's enabled
+                if (darkModeEnabled) {
                     applyDarkMode();
-                    localStorage.setItem('darkMode', 'enabled');
+                } else {
+                    removeDarkMode();
                 }
+
+                toggleButton.addEventListener('click', () => {
+                    const isDarkMode = document.body.classList.toggle('dark-mode');
+                    if (isDarkMode) {
+                        applyDarkMode();
+                        localStorage.setItem('darkMode', 'enabled');
+                    } else {
+                        removeDarkMode();
+                        localStorage.setItem('darkMode', 'disabled');
+                    }
+                });
+
+                // Make applyDarkModeToFolders available globally
+                window.applyDarkModeToFolders = applyDarkModeToFolders;
             });
+        </script>
 
-            // Optional: Apply the user's preference from local storage
-            if (localStorage.getItem('darkMode') === 'enabled') {
-                applyDarkMode();
-            } else {
-                toggleNavbarClass(false);
+        <style>
+            html, body {
+                margin: 0;
+                padding: 0;
+                height: 100%;
             }
-        });
-    </script>
+            .page-container {
+                display: flex;
+                flex-direction: column;
+                min-height: 100vh;
+            }
+            .main-content {
+                flex: 1;
+            }
+            .bg-light-custom {
+                background-color: #f0f0f0;
+                color: #333;
+            }
 
-    <style>
-        .dark-mode {
-            background-color: #333;
-            color: #fff;
-        }
+            .text-dark-custom {
+                color: #333;
+            }
 
-        .dark_paper-page {
-            font-family: "Times New Roman", Times, serif;
-            font-size: 12pt;
-            line-height: 2; /* Double space */
-            background-color: #343a40;
-            color: white;
-        }
+            .navbar-light-custom {
+                background-color: #f0f0f0;
+                color: #333;
+            }
 
-        .file-system {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            padding: 20px;
-            background-color: #fff;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
+            .dark-mode {
+                background-color: #333;
+                color: #fff;
+            }
 
-        .folder {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            width: 120px;
-            padding: 10px;
-            background-color: #e6e6e6;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            transition: transform 0.2s, background-color 0.2s, box-shadow 0.2s;
-        }
+            .dark_paper-page {
+                font-family: "Times New Roman", Times, serif;
+                font-size: 12pt;
+                line-height: 2;
+                background-color: #343a40;
+                color: white;
+            }
+            .dark_paper-page pre {
+                color: white;
+            }
 
-        .folder:hover {
-            transform: translateY(-3px);
-            background-color: #d9d9d9;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-        }
+            .file-system {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 10px;
+                padding: 20px;
+                background-color: #fff;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            }
 
-        /* Dark mode styles */
-        .dark_file-system {
-            background-color: #333;
-            border: 1px solid #555;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-        }
+            .folder {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                width: 120px;
+                padding: 10px;
+                background-color: #e6e6e6;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                transition: transform 0.2s, background-color 0.2s, box-shadow 0.2s;
+            }
 
-        .dark_folder {
-            background-color: #444;
-            border: 1px solid #555;
-        }
+            .folder:hover {
+                transform: translateY(-3px);
+                background-color: #d9d9d9;
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            }
 
-        .dark_folder:hover {
-            background-color: #555;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.7);
-        }
-    </style>
-</footer>
+            /* Dark mode styles */
+            .dark_file-system {
+                background-color: #333;
+                border: 1px solid #555;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+            }
+
+            .dark_folder {
+                background-color: #444;
+                border: 1px solid #555;
+                color: #fff;
+            }
+
+            .dark_folder:hover {
+                background-color: #555;
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.7);
+            }
+        </style>
+    </footer>
+</div>
