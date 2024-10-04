@@ -12,6 +12,10 @@
             list-style-type: none;
             padding: 0;
         }
+        .file-list.scrollable {
+            max-height: 400px;
+            overflow-y: auto;
+        }
         .file-item {
             display: flex;
             justify-content: space-between;
@@ -33,7 +37,7 @@
     <%- include('header.ejs') %>
     <div class="container mt-5">
         <h1 class="mb-4">Admin Page</h1>
-        <ul class="file-list">
+        <ul class="file-list<%= files.length > 10 ? ' scrollable' : '' %>">
             <% files.forEach(function(file) { %>
                 <li class="file-item">
                     <span><%= file %></span>
@@ -46,27 +50,31 @@
 
     <script>
         function deleteFile(fileName) {
-            fetch(`/delete-file/${fileName}`, {
-                method: 'DELETE'
-            }).then(response => {
-                if (response.ok) {
-                    location.reload();
-                } else {
-                    alert('Failed to delete file');
-                }
-            });
+            setTimeout(() => {
+                fetch(`/delete-file/${fileName}`, {
+                    method: 'DELETE'
+                }).then(response => {
+                    if (response.ok) {
+                        location.reload();
+                    } else {
+                        alert('Failed to delete file');
+                    }
+                });
+            }, 1000); // 1 second delay
         }
 
         function deleteAllFiles() {
-            fetch('/delete-all-files', {
-                method: 'DELETE'
-            }).then(response => {
-                if (response.ok) {
-                    location.reload();
-                } else {
-                    alert('Failed to delete all files');
-                }
-            });
+            setTimeout(() => {
+                fetch('/delete-all-files', {
+                    method: 'DELETE'
+                }).then(response => {
+                    if (response.ok) {
+                        location.reload();
+                    } else {
+                        alert('Failed to delete all files');
+                    }
+                });
+            }, 1000); // 1 second delay
         }
     </script>
     <%- include('footer.ejs') %>
