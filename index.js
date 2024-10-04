@@ -4,7 +4,7 @@ const multer = require('multer');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
 const session = require('express-session');
-const sqlite3 = require('sqlite3');
+const mariadb = require('mariadb');
 const cookieParser = require("cookie-parser")
 const sgMail = require('@sendgrid/mail')
 require('dotenv').config();
@@ -73,16 +73,30 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-// Initialize SQLite database
-const dbPath = path.join(__dirname, 'database.sqlite');
-const db = new sqlite3.Database(dbPath);
-
-db.serialize(() => {
-  if (!fs.existsSync(dbPath)) {
-    db.run("CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, password TEXT, email TEXT, isAdmin INTEGER DEFAULT 0)");
-    db.run("CREATE TABLE files (id INTEGER PRIMARY KEY, user_id INTEGER, filename TEXT, description TEXT, FOREIGN KEY(user_id) REFERENCES users(id))");
-  }
+// Initialize MariaDB connection pool
+const pool = mariadb.createPool({
+  host: '127.0.0.1',
+  port: 3306,
+  user: process.env.PROCESS_USER,
+  password: process.env.PROCESS_PASSWORD,
+  database: process.env.PROCESS_DATABASE,
+  connectionLimit: 5
 });
+
+// Ensure the database tables exist
+async function initializeDatabase() {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    await conn.query("CREATE TABLE IF NOT EXISTS users (id INT PRIMARY KEY AUTO_INCREMENT, username VARCHAR(255), password VARCHAR(255), email VARCHAR(255), isAdmin TINYINT DEFAULT 0)");
+    await conn.query("CREATE TABLE IF NOT EXISTS files (id INT PRIMARY KEY AUTO_INCREMENT, user_id INT, filename VARCHAR(255), description TEXT, FOREIGN KEY(user_id) REFERENCES users(id))");
+  } catch (err) {
+    console.error('Error initializing database:', err);
+  } finally {
+    if (conn) conn.release();
+  }
+}
+initializeDatabase();
 
 // Route to render the signup page
 app.get('/signup', (req, res) => {
@@ -99,31 +113,32 @@ app.post('/signup', async (req, res) => {
     return res.render('signup', { title: 'Sign Up', error: 'Password must be at least 8 characters long, contain at least one uppercase letter, and one special character' });
   }
 
-  // Check if the user already exists
-  db.get("SELECT * FROM users WHERE username = ?", [username], async (err, user) => {
-    if (err) {
-      return res.render('signup', { title: 'Sign Up', error: 'Error checking user existence' });
-    }
-    if (user) {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+
+    // Check if the user already exists
+    const user = await conn.query("SELECT * FROM users WHERE username = ?", [username]);
+    if (user.length > 0) {
       return res.render('signup', { title: 'Sign Up', error: 'User already exists' });
     }
 
     // If user does not exist, proceed with signup
     const hashedPassword = await bcrypt.hash(password, 10);
-    db.run("INSERT INTO users (username, password, email) VALUES (?, ?, ?)", [username, hashedPassword, email], function(innerErr) {
-      if (innerErr) {
-        return res.render('signup', { title: 'Sign Up', error: 'Error creating user' });
-      }
-      req.session.userId = this.lastID;
+    const result = await conn.query("INSERT INTO users (username, password, email) VALUES (?, ?, ?)", [username, hashedPassword, email]);
+    req.session.userId = result.insertId.toString(); // Convert BigInt to string
 
-      // Send welcome email
-      sendWelcomeEmail(email); // Comment this line out for testing
+    // Send welcome email
+    sendWelcomeEmail(email); // Comment this line out for testing
 
-      res.render('signup', { title: 'Sign Up', success: 'Signup successful! Please check your email for a welcome message. Redirecting and logging in', redirect: true });
-    });
-  });
+    res.render('signup', { title: 'Sign Up', success: 'Signup successful! Please check your email for a welcome message.' });
+  } catch (err) {
+    console.error('Error during signup:', err);
+    res.render('signup', { title: 'Sign Up', error: 'Error creating user' });
+  } finally {
+    if (conn) conn.release();
+  }
 });
-
 
 sgMail.setApiKey(process.env.SEND_API);
 
@@ -146,7 +161,6 @@ function sendWelcomeEmail(to) {
     });
 }
 
-
 // Route to render the login page
 app.get('/login', (req, res) => {
   const error = req.query.error || null;
@@ -154,19 +168,27 @@ app.get('/login', (req, res) => {
 });
 
 app.get('/beta', (req, res) => {
-  res.render('beta', { title: 'beta'});
+  res.render('beta', { title: 'beta' });
 });
 
 // Route for user login
-app.post('/login', (req, res) => {
+app.post('/login', async (req, res) => {
   const { username, password } = req.body;
-  db.get("SELECT * FROM users WHERE username = ?", [username], async (err, user) => {
-    if (err || !user || !(await bcrypt.compare(password, user.password))) {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const user = await conn.query("SELECT * FROM users WHERE username = ?", [username]);
+    if (user.length === 0 || !(await bcrypt.compare(password, user[0].password))) {
       return res.redirect('/login?error=Invalid credentials');
     }
-    req.session.userId = user.id;
+    req.session.userId = user[0].id;
     res.redirect('/');
-  });
+  } catch (err) {
+    console.error('Error during login:', err);
+    res.redirect('/login?error=Invalid credentials');
+  } finally {
+    if (conn) conn.release();
+  }
 });
 
 // Route for user logout
@@ -184,19 +206,17 @@ app.get('/logout', (req, res) => {
 });
 
 // Route to render the upload page
-app.get('/upload', (req, res) => {
+app.get('/upload', async (req, res) => {
   console.log('Session User ID:', req.session.userId); // Debugging statement
 
   if (!req.session.userId) {
     return res.redirect('/login');
   }
 
-  db.all("SELECT files.*, users.username FROM files JOIN users ON files.user_id = users.id WHERE files.user_id = ?", [req.session.userId], (err, files) => {
-    if (err) {
-      console.error('Database Error:', err); // Debugging statement
-      return res.status(500).send('Error retrieving files');
-    }
-
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const files = await conn.query("SELECT files.*, users.username FROM files JOIN users ON files.user_id = users.id WHERE files.user_id = ?", [req.session.userId]);
     console.log('Files Retrieved:', files); // Debugging statement
 
     const fileList = files.map(file => ({
@@ -207,11 +227,16 @@ app.get('/upload', (req, res) => {
     }));
 
     res.render('upload', { title: 'Upload Files', files: fileList, isLoggedIn: true });
-  });
+  } catch (err) {
+    console.error('Database Error:', err); // Debugging statement
+    res.status(500).send('Error retrieving files');
+  } finally {
+    if (conn) conn.release();
+  }
 });
 
 // Route for file upload
-app.post('/upload', upload.single('file'), (req, res) => {
+app.post('/upload', upload.single('file'), async (req, res) => {
   if (!req.session.userId) {
     return res.status(401).send('You must be logged in to upload files');
   }
@@ -233,26 +258,31 @@ app.post('/upload', upload.single('file'), (req, res) => {
     finalPath = path.join(uploadDir, newFilename);
   }
 
-  fs.rename(req.file.path, finalPath, (err) => {
+  fs.rename(req.file.path, finalPath, async (err) => {
     if (err) {
       return res.status(500).send('Error renaming file');
     }
 
-    db.run("INSERT INTO files (user_id, filename, description) VALUES (?, ?, ?)", [req.session.userId, newFilename, description || ''], (err) => {
-      if (err) {
-        return res.status(500).send('Error uploading file');
-      }
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      await conn.query("INSERT INTO files (user_id, filename, description) VALUES (?, ?, ?)", [req.session.userId, newFilename, description || '']);
       res.send('<script>alert("Upload complete!"); window.location.href="/upload";</script>');
-    });
+    } catch (err) {
+      console.error('Error uploading file:', err);
+      res.status(500).send('Error uploading file');
+    } finally {
+      if (conn) conn.release();
+    }
   });
 });
 
 // API route to fetch latest user uploads
-app.get('/api/latest-uploads', (_, res) => {
-  db.all("SELECT files.*, users.username FROM files JOIN users ON files.user_id = users.id ORDER BY files.id DESC LIMIT 10", (err, files) => {
-    if (err) {
-      return res.status(500).json({ error: 'Error retrieving files' });
-    }
+app.get('/api/latest-uploads', async (_, res) => {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const files = await conn.query("SELECT files.*, users.username FROM files JOIN users ON files.user_id = users.id ORDER BY files.id DESC LIMIT 10");
     const fileList = files.map(file => ({
       name: file.filename,
       description: file.description,
@@ -261,7 +291,12 @@ app.get('/api/latest-uploads', (_, res) => {
       username: file.username
     }));
     res.json(fileList);
-  });
+  } catch (err) {
+    console.error('Error retrieving files:', err);
+    res.status(500).json({ error: 'Error retrieving files' });
+  } finally {
+    if (conn) conn.release();
+  }
 });
 
 // Route to download files
@@ -275,55 +310,56 @@ app.get('/download/:filename', (req, res) => {
 });
 
 // Route to render the admin page
-app.get('/admin', (req, res) => {
+app.get('/admin', async (req, res) => {
   if (!req.session.userId) {
     return res.redirect('/login');
   }
-  db.get("SELECT isAdmin FROM users WHERE id = ?", [req.session.userId], (err, user) => {
-    if (err || !user || user.isAdmin !== 1) {
+
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const user = await conn.query("SELECT isAdmin FROM users WHERE id = ?", [req.session.userId]);
+    if (user.length === 0 || user[0].isAdmin !== 1) {
       return res.redirect('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
     }
-    db.all("SELECT filename FROM files", (err, files) => {
-      if (err) {
-        return res.status(500).send('Error retrieving files');
-      }
-      const fileList = files.map(file => file.filename);
-      res.render('admin', { title: 'Admin Page', files: fileList, isLoggedIn: true });
-    });
-  });
-});
-
-// Ensure the 'isAdmin' column exists in the 'users' table
-db.serialize(() => {
-  db.run("ALTER TABLE users ADD COLUMN isAdmin INTEGER DEFAULT 0", (err) => {
-    if (err && !err.message.includes('duplicate column name')) {
-      console.error('Error adding isAdmin column:', err);
-    }
-  });
+    const files = await conn.query("SELECT filename FROM files");
+    const fileList = files.map(file => file.filename);
+    res.render('admin', { title: 'Admin Page', files: fileList, isLoggedIn: true });
+  } catch (err) {
+    console.error('Error retrieving admin data:', err);
+    res.status(500).send('Error retrieving admin data');
+  } finally {
+    if (conn) conn.release();
+  }
 });
 
 // Route to delete a specific file
-app.delete('/delete-file/:filename', (req, res) => {
+app.delete('/delete-file/:filename', async (req, res) => {
   const filename = req.params.filename;
   const filePath = path.join(uploadDir, filename);
 
-  fs.unlink(filePath, (err) => {
+  fs.unlink(filePath, async (err) => {
     if (err) {
       return res.status(500).send('Error deleting file');
     }
 
-    db.run("DELETE FROM files WHERE filename = ?", [filename], (err) => {
-      if (err) {
-        return res.status(500).send('Error deleting file from database');
-      }
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      await conn.query("DELETE FROM files WHERE filename = ?", [filename]);
       res.sendStatus(200);
-    });
+    } catch (err) {
+      console.error('Error deleting file from database:', err);
+      res.status(500).send('Error deleting file from database');
+    } finally {
+      if (conn) conn.release();
+    }
   });
 });
 
 // Route to delete all files
-app.delete('/delete-all-files', (req, res) => {
-  fs.readdir(uploadDir, (err, files) => {
+app.delete('/delete-all-files', async (req, res) => {
+  fs.readdir(uploadDir, async (err, files) => {
     if (err) {
       return res.status(500).send('Error reading files');
     }
@@ -332,17 +368,19 @@ app.delete('/delete-all-files', (req, res) => {
       fs.unlinkSync(path.join(uploadDir, file));
     });
 
-    db.run("DELETE FROM files", (err) => {
-      if (err) {
-        return res.status(500).send('Error deleting files from database');
-      }
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      await conn.query("DELETE FROM files");
       res.sendStatus(200);
-    });
+    } catch (err) {
+      console.error('Error deleting files from database:', err);
+      res.status(500).send('Error deleting files from database');
+    } finally {
+      if (conn) conn.release();
+    }
   });
 });
-
-
-
 
 app.get('/view/:filename', (req, res) => {
   const filename = req.params.filename;
@@ -385,7 +423,6 @@ app.get('/view/:filename', (req, res) => {
   });
 });
 
-
 // Route to toggle dark mode
 app.post('/toggle-dark-mode', (req, res) => {
   const isDarkMode = req.body.isDarkMode === 'true'; // Capture the toggle state
@@ -399,4 +436,3 @@ app.use((req, res, next) => {
   res.locals.isDarkMode = darkMode; // Pass it to the views
   next();
 });
-

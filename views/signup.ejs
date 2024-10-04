@@ -5,15 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Signup</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <% if (typeof redirect !== 'undefined' && redirect) { %>
-    <script>
-        setTimeout(function() {
-            window.location.href = '/';
-        }, 3000);
-    </script>
-    <% } %>
 </head>
 <body>
+    <% if (typeof success !== 'undefined') { %>
+        <script>
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 2000); // 2-second delay
+        </script>
+    <% } %>
     <%- include('header.ejs') %>
     <div class="container">
         <h1 class="mt-5">Signup</h1>
