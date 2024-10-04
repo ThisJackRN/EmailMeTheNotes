@@ -4,6 +4,14 @@ body {
     margin: 0;
     padding: 20px;
 }
+
+.content-viewer {
+  font-size: 1em; /* Default font size */
+  white-space: pre-wrap; /* Allow wrapping */
+  word-wrap: break-word; /* Break long words */
+  font-family: 'Courier New', Courier, monospace; /* Monospace font for code-like appearance */
+}
+
 .file-system {
     display: flex;
     flex-wrap: wrap;

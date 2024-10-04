@@ -342,6 +342,8 @@ app.delete('/delete-all-files', (req, res) => {
 });
 
 
+
+
 app.get('/view/:filename', (req, res) => {
   const filename = req.params.filename;
   const filePath = path.join(uploadDir, filename);
@@ -353,30 +355,36 @@ app.get('/view/:filename', (req, res) => {
     }
 
     // Check if the file is a .docx file
-    if (path.extname(filename) === '.docx') {
+    if (path.extname(filename).toLowerCase() === '.docx') {
       fs.readFile(filePath, (err, data) => {
         if (err) {
           console.error('Error reading .docx file:', err);
           return res.status(500).send('Error reading .docx file');
         }
 
-        mammoth.extractRawText({ buffer: data })
+        mammoth.convertToHtml({ buffer: data })
           .then(result => {
-            console.log('Raw text extraction successful:', result.value); // Debugging statement
-            const rawText = result.value.trim() ? result.value : 'No content available';
-            res.render('viewer', { title: 'View File', content: `<pre>${rawText}</pre>`, isLoggedIn, fileUrl: `/uploads/${filename}`, filename });
+            console.log('HTML extraction successful:', result.value); // Debugging statement
+            const htmlContent = result.value.trim() ? result.value : 'No content available';
+            res.render('viewer', { title: 'View File', content: htmlContent, isLoggedIn, fileUrl: `/uploads/${filename}`, filename });
           })
           .catch(err => {
-            console.error('Error extracting raw text from .docx file:', err);
-            res.status(500).send('Error extracting raw text from .docx file');
+            console.error('Error extracting HTML from .docx file:', err);
+            res.status(500).send('Error extracting HTML from .docx file');
           });
       });
     } else {
-      const fileUrl = `/uploads/${filename}`;
-      res.render('viewer', { title: 'View File', content: `<iframe src="${fileUrl}" width="100%" height="600px"></iframe>`, isLoggedIn, fileUrl, filename });
+      fs.readFile(filePath, 'utf8', (err, data) => {
+        if (err) {
+          console.error('Error reading file:', err);
+          return res.status(500).send('Error reading file');
+        }
+        res.render('viewer', { title: 'View File', content: `<pre class="content-viewer">${data}</pre>`, isLoggedIn, fileUrl: `/uploads/${filename}`, filename });
+      });
     }
   });
 });
+
 
 // Route to toggle dark mode
 app.post('/toggle-dark-mode', (req, res) => {

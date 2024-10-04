@@ -26,18 +26,15 @@
     <link id="theme-stylesheet" rel="stylesheet" href="<%= isDarkMode ? '/static/dark-styles.css' : '/static/styles.css' %>">
 </head>
 <body>
-    
     <%- include('header.ejs', { isLoggedIn: isLoggedIn }) %>
     <div class="container">
-        <div class="paper-page">
+        <div class="paper-page dark_paper-page">
             <% if (content) { %>
                 <div><%- content %></div>
-                <button onclick="downloadCurrentFile()">Download File</button>
             <% } else { %>
                 <p>No file information available.</p>
             <% } %>
         </div>
-    </div>
     <%- include('footer.ejs') %>
 </body>
 </html>
