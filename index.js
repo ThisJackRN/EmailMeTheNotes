@@ -8,6 +8,7 @@ const sqlite3 = require('sqlite3');
 const cookieParser = require("cookie-parser")
 
 const fs = require('fs');
+const mammoth = require('mammoth');
 
 const app = express();
 const port = 3000;
@@ -26,6 +27,9 @@ app.set('views', path.join(__dirname, 'views'));
 
 // Serve static files from the 'public' directory
 app.use('/static', express.static(path.join(__dirname, 'static')));
+
+// Use cookie-parser middleware
+app.use(cookieParser());
 
 // Configure session middleware
 app.use(session({
@@ -81,19 +85,42 @@ app.get('/signup', (req, res) => {
 // Route for user signup
 app.post('/signup', async (req, res) => {
   const { username, password } = req.body;
-  const hashedPassword = await bcrypt.hash(password, 10);
-  db.run("INSERT INTO users (username, password) VALUES (?, ?)", [username, hashedPassword], function(err) {
+
+  // Validate password
+  const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
+  if (!passwordRegex.test(password)) {
+    return res.render('signup', { title: 'Sign Up', error: 'Password must be at least 8 characters long, contain at least one uppercase letter, and one special character' });
+  }
+
+  // Check if the user already exists
+  db.get("SELECT * FROM users WHERE username = ?", [username], async (err, user) => {
     if (err) {
-      return res.status(500).send('Error signing up');
+      return res.render('signup', { title: 'Sign Up', error: 'Error checking user existence' });
     }
-    req.session.userId = this.lastID;
-    res.redirect('/');
+    if (user) {
+      return res.render('signup', { title: 'Sign Up', error: 'User already exists' });
+    }
+
+    // If user does not exist, proceed with signup
+    const hashedPassword = await bcrypt.hash(password, 10);
+    db.run("INSERT INTO users (username, password) VALUES (?, ?)", [username, hashedPassword], function(innerErr) {
+      if (innerErr) {
+        return res.render('signup', { title: 'Sign Up', error: 'Error creating user' });
+      }
+      req.session.userId = this.lastID;
+      res.redirect('/');
+    });
   });
 });
 
 // Route to render the login page
 app.get('/login', (req, res) => {
-  res.render('login', { title: 'Login' });
+  const error = req.query.error || null;
+  res.render('login', { title: 'Login', error });
+});
+
+app.get('/beta', (req, res) => {
+  res.render('beta', { title: 'beta'});
 });
 
 // Route for user login
@@ -101,7 +128,7 @@ app.post('/login', (req, res) => {
   const { username, password } = req.body;
   db.get("SELECT * FROM users WHERE username = ?", [username], async (err, user) => {
     if (err || !user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(401).send('Invalid credentials');
+      return res.redirect('/login?error=Invalid credentials');
     }
     req.session.userId = user.id;
     res.redirect('/');
@@ -109,29 +136,42 @@ app.post('/login', (req, res) => {
 });
 
 // Route for user logout
-app.post('/logout', (req, res) => {
+app.get('/logout', (req, res) => {
+  console.log('Logout route accessed');
   req.session.destroy(err => {
     if (err) {
-      return res.status(500).send('Error logging out');
+      console.error('Error destroying session:', err);
+      return res.status(500).json({ error: 'Error logging out' });
     }
+    res.clearCookie('connect.sid'); // Clear the session cookie
+    console.log('Session destroyed and cookie cleared');
     res.redirect('/');
   });
 });
 
 // Route to render the upload page
 app.get('/upload', (req, res) => {
+  console.log('Session User ID:', req.session.userId); // Debugging statement
+
   if (!req.session.userId) {
     return res.redirect('/login');
   }
-  db.all("SELECT * FROM files WHERE user_id = ?", [req.session.userId], (err, files) => {
+
+  db.all("SELECT files.*, users.username FROM files JOIN users ON files.user_id = users.id WHERE files.user_id = ?", [req.session.userId], (err, files) => {
     if (err) {
+      console.error('Database Error:', err); // Debugging statement
       return res.status(500).send('Error retrieving files');
     }
+
+    console.log('Files Retrieved:', files); // Debugging statement
+
     const fileList = files.map(file => ({
       name: file.filename,
       url: `/uploads/${file.filename}`,
-      type: path.extname(file.filename).substring(1)
+      type: path.extname(file.filename).substring(1),
+      username: file.username
     }));
+
     res.render('upload', { title: 'Upload Files', files: fileList, isLoggedIn: true });
   });
 });
@@ -168,13 +208,14 @@ app.post('/upload', upload.single('file'), (req, res) => {
       if (err) {
         return res.status(500).send('Error uploading file');
       }
-      res.redirect('/upload');
+      res.send('<script>alert("Upload complete!"); window.location.href="/upload";</script>');
     });
   });
 });
+
 // API route to fetch latest user uploads
 app.get('/api/latest-uploads', (_, res) => {
-  db.all("SELECT * FROM files ORDER BY id DESC LIMIT 10", (err, files) => {
+  db.all("SELECT files.*, users.username FROM files JOIN users ON files.user_id = users.id ORDER BY files.id DESC LIMIT 10", (err, files) => {
     if (err) {
       return res.status(500).json({ error: 'Error retrieving files' });
     }
@@ -182,7 +223,8 @@ app.get('/api/latest-uploads', (_, res) => {
       name: file.filename,
       description: file.description,
       icon: '/static/icons/folder.png', // Assuming you have an icon for folders
-      url: `/download/${file.filename}`
+      url: `/download/${file.filename}`,
+      username: file.username
     }));
     res.json(fileList);
   });
@@ -263,4 +305,53 @@ app.delete('/delete-all-files', (req, res) => {
       res.sendStatus(200);
     });
   });
+});
+
+
+app.get('/view/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const filePath = path.join(uploadDir, filename);
+
+  fs.access(filePath, fs.constants.F_OK, (err) => {
+    if (err) {
+      return res.status(404).send('File not found');
+    }
+
+    // Check if the file is a .docx file
+    if (path.extname(filename) === '.docx') {
+      fs.readFile(filePath, (err, data) => {
+        if (err) {
+          console.error('Error reading .docx file:', err);
+          return res.status(500).send('Error reading .docx file');
+        }
+
+        mammoth.extractRawText({ buffer: data })
+          .then(result => {
+            console.log('Raw text extraction successful:', result.value); // Debugging statement
+            const rawText = result.value.trim() ? result.value : 'No content available';
+            res.render('viewer', { title: 'View File', content: `<pre>${rawText}</pre>` });
+          })
+          .catch(err => {
+            console.error('Error extracting raw text from .docx file:', err);
+            res.status(500).send('Error extracting raw text from .docx file');
+          });
+      });
+    } else {
+      const fileUrl = `/uploads/${filename}`;
+      res.render('viewer', { title: 'View File', content: `<iframe src="${fileUrl}" width="100%" height="600px"></iframe>` });
+    }
+  });
+});
+
+// Route to toggle dark mode
+app.post('/toggle-dark-mode', (req, res) => {
+  const isDarkMode = req.body.isDarkMode === 'true';
+  req.session.isDarkMode = isDarkMode;
+  res.sendStatus(200);
+});
+
+// Middleware to set dark mode based on session
+app.use((req, res, next) => {
+  res.locals.isDarkMode = req.session.isDarkMode || false;
+  next();
 });

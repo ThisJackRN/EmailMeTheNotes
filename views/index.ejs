@@ -3,60 +3,12 @@
     <!-- Folders will be dynamically inserted here -->
 </div>
 
-<style>
-    body {
-        font-family: Segoe UI, Tahoma, sans-serif;
-        background-color: #f0f0f0;
-        margin: 0;
-        padding: 20px;
-    }
-    .file-system {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        padding: 20px;
-        background-color: #fff;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-    .folder {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        width: 120px;
-        padding: 10px;
-        background-color: #e6e6e6;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        transition: transform 0.2s, background-color 0.2s, box-shadow 0.2s;
-    }
-    .folder:hover {
-        transform: translateY(-3px);
-        background-color: #d9d9d9;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-    }
-    .folder img {
-        width: 64px;
-        height: 64px;
-        margin-bottom: 10px;
-    }
-    .folder span {
-        text-align: center;
-        font-weight: bold;
-        color: #333;
-        word-wrap: break-word;
-        word-break: break-all;
-        font-size: 14px;
-    }
-    a {
-        text-decoration: none;
-        color: inherit;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-    }
-</style>
+<% var isDarkMode = typeof isDarkMode !== 'undefined' ? isDarkMode : false; %>
+<% if (isDarkMode) { %>
+    <link rel="stylesheet" href="/static/dark-styles.css">
+<% } else { %>
+    <link rel="stylesheet" href="/static/styles.css">
+<% } %>
 
 <!-- Include Bootstrap CSS and JS for tooltips -->
 <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
@@ -83,15 +35,18 @@
             .then(response => response.json())
             .then(data => {
                 const fileSystem = document.getElementById('file-system');
+                const folderClass = '<%= isDarkMode ? "dark_folder" : "folder" %>';
                 data.forEach(file => {
                     const fileExtension = file.name.split('.').pop().toLowerCase();
                     const folderDiv = document.createElement('div');
-                    folderDiv.className = 'folder';
+                    folderDiv.className = folderClass;
                     folderDiv.innerHTML = `
                         <a href="/download/${file.name}" download data-toggle="tooltip" title="${file.description ? file.description : 'No description available'}">
                             <img src="${getFileIcon(fileExtension)}" alt="File Icon">
                             <span>${file.name}</span>
+                            <span style="font-size: 10px; color: #666;">${file.username ? file.username : 'Unknown'}</span>
                         </a>
+                        ${fileExtension === 'docx' ? `<button class="view-button" onclick="viewDocx('${file.name}')">View</button>` : ''}
                     `;
                     fileSystem.appendChild(folderDiv);
                 });
@@ -101,5 +56,9 @@
             })
             .catch(error => console.error('Error fetching latest uploads:', error));
     });
+
+    function viewDocx(filename) {
+        window.location.href = `/view/${filename}`;
+    }
 </script>
 <%- include('footer.ejs') %>

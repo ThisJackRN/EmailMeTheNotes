@@ -17,29 +17,13 @@
                 </div>
                 <button type="submit" class="btn btn-primary">Upload</button>
             </form>
-
-            <h2 class="mb-4">Uploaded Files</h2>
-            <div id="file-list" class="list-group">
-                <% files.forEach(file => { %>
-                    <div class="folder list-group-item d-flex align-items-center">
-                        <% if (file.type === 'pdf') { %>
-                            <img src="../static/pdf-icon.png" alt="PDF Icon">
-                        <% } else if (file.type === 'docx') { %>
-                            <img src="../static/docx-icon.png" alt="DOCX Icon">
-                        <% } else if (file.type === 'txt') { %>
-                            <a href="<%= file.url %>" target="_blank" class="ml-2"><%= file.name %></a>
-                            <p class="ml-2"><%= file.description %></p>
-                        <% } else if (file.type === 'jpg' || file.type === 'png') { %>
-                            <img src="../static/image-icon.png" alt="Image Icon">
-                        <% } else { %>
-                            <img src="../static/docx-icon.png" alt="DOCX Icon">
-                        <% } %>
-                        <a href="<%= file.url %>" target="_blank" class="ml-2"><%= file.name %></a>
-                    </div>
-                <% }) %>
-            </div>
-        </div>
         <%- include('footer.ejs') %>
+        <script>
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('upload') && urlParams.get('upload') === 'success') {
+                alert('Upload successful!');
+            }
+        </script>
     <% } else { %>
         <script>
             window.location.href = '/';

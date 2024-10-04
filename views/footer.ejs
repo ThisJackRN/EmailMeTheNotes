@@ -1,0 +1,130 @@
+<footer id="footer" style="position: fixed; bottom: 0; width: 100%; text-align: center; padding: 10px;">
+    <p>&copy;2025 EmailMeTheNotes! <a href="/beta">(Beta)<a> product</a> </a></p>
+    <button id="darkModeToggle">Toggle Dark Mode</button>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const toggleButton = document.getElementById('darkModeToggle');
+            const footer = document.getElementById('footer');
+            const paper = document.querySelector('.paper-page');
+            const fileSystem = document.querySelector('.file-system');
+            const folders = document.querySelectorAll('.folder');
+
+            const removeDarkMode = () => {
+                document.body.classList.remove('dark-mode');
+                footer.classList.remove('dark-mode');
+                if (paper) {
+                    paper.classList.remove('dark_paper-page');
+                }
+                if (fileSystem) {
+                    fileSystem.classList.remove('dark_file-system');
+                }
+                toggleNavbarClass(false);
+            };
+
+
+            const applyDarkMode = () => {
+                document.body.classList.add('dark-mode');
+                footer.classList.add('dark-mode');
+                if (paper) {
+                    paper.classList.add('dark_paper-page');
+                }
+                if (fileSystem) {
+                    fileSystem.classList.add('dark_file-system');
+                }
+                toggleNavbarClass(true);
+            };
+
+            const toggleNavbarClass = (isDarkMode) => {
+                const navbar = document.querySelector('.navbar');
+                if (navbar) {
+                    if (isDarkMode) {
+                        navbar.classList.remove('navbar-light', 'bg-light');
+                        navbar.classList.add('navbar-dark', 'bg-dark');
+                    } else {
+                        navbar.classList.remove('navbar-dark', 'bg-dark');
+                        navbar.classList.add('navbar-light', 'bg-light');
+                    }
+                }
+            };
+
+            toggleButton.addEventListener('click', () => {
+                if (document.body.classList.contains('dark-mode')) {
+                    removeDarkMode();
+                    localStorage.setItem('darkMode', 'disabled');
+                } else {
+                    applyDarkMode();
+                    localStorage.setItem('darkMode', 'enabled');
+                }
+            });
+
+            // Optional: Apply the user's preference from local storage
+            if (localStorage.getItem('darkMode') === 'enabled') {
+                applyDarkMode();
+            } else {
+                toggleNavbarClass(false);
+            }
+        });
+    </script>
+
+    <style>
+        .dark-mode {
+            background-color: #333;
+            color: #fff;
+        }
+
+        .dark_paper-page {
+            font-family: "Times New Roman", Times, serif;
+            font-size: 12pt;
+            line-height: 2; /* Double space */
+            background-color: #343a40;
+            color: white;
+        }
+
+        .file-system {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 20px;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .folder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 120px;
+            padding: 10px;
+            background-color: #e6e6e6;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            transition: transform 0.2s, background-color 0.2s, box-shadow 0.2s;
+        }
+
+        .folder:hover {
+            transform: translateY(-3px);
+            background-color: #d9d9d9;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Dark mode styles */
+        .dark_file-system {
+            background-color: #333;
+            border: 1px solid #555;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .dark_folder {
+            background-color: #444;
+            border: 1px solid #555;
+        }
+
+        .dark_folder:hover {
+            background-color: #555;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.7);
+        }
+    </style>
+</footer>
