@@ -6,6 +6,8 @@ const bcrypt = require('bcrypt');
 const session = require('express-session');
 const sqlite3 = require('sqlite3');
 const cookieParser = require("cookie-parser")
+const sgMail = require('@sendgrid/mail')
+require('dotenv').config();
 
 const fs = require('fs');
 const mammoth = require('mammoth');
@@ -47,7 +49,9 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // Define a route to render an EJS page
 app.get('/', (req, res) => {
   const isAuthenticated = req.session.userId ? true : false;
-  res.render('index', { title: 'Home', isLoggedIn: isAuthenticated });
+  const successMessage = req.session.successMessage || null;
+  req.session.successMessage = null; // Clear the message after displaying it
+  res.render('index', { title: 'Home', isLoggedIn: isAuthenticated, successMessage });
 });
 
 
@@ -75,7 +79,7 @@ const db = new sqlite3.Database(dbPath);
 
 db.serialize(() => {
   if (!fs.existsSync(dbPath)) {
-    db.run("CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, password TEXT, isAdmin INTEGER DEFAULT 0)");
+    db.run("CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, password TEXT, email TEXT, isAdmin INTEGER DEFAULT 0)");
     db.run("CREATE TABLE files (id INTEGER PRIMARY KEY, user_id INTEGER, filename TEXT, description TEXT, FOREIGN KEY(user_id) REFERENCES users(id))");
   }
 });
@@ -87,7 +91,7 @@ app.get('/signup', (req, res) => {
 
 // Route for user signup
 app.post('/signup', async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, email } = req.body;
 
   // Validate password
   const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
@@ -106,15 +110,42 @@ app.post('/signup', async (req, res) => {
 
     // If user does not exist, proceed with signup
     const hashedPassword = await bcrypt.hash(password, 10);
-    db.run("INSERT INTO users (username, password) VALUES (?, ?)", [username, hashedPassword], function(innerErr) {
+    db.run("INSERT INTO users (username, password, email) VALUES (?, ?, ?)", [username, hashedPassword, email], function(innerErr) {
       if (innerErr) {
         return res.render('signup', { title: 'Sign Up', error: 'Error creating user' });
       }
       req.session.userId = this.lastID;
-      res.redirect('/');
+
+      // Send welcome email
+      sendWelcomeEmail(email); // Comment this line out for testing
+
+      res.render('signup', { title: 'Sign Up', success: 'Signup successful! Please check your email for a welcome message. Redirecting and logging in', redirect: true });
     });
   });
 });
+
+
+sgMail.setApiKey(process.env.SEND_API);
+
+function sendWelcomeEmail(to) {
+  const msg = {
+    to,
+    from: process.env.SENDER_EMAIL, // Change to your verified sender
+    subject: 'Welcome to Our Service',
+    text: 'Thank you for signing up!',
+    html: '<strong>Thank you for signing up!</strong>',
+  };
+
+  sgMail
+    .send(msg)
+    .then(() => {
+      console.log('Welcome email sent');
+    })
+    .catch((error) => {
+      console.error('Error sending welcome email:', error);
+    });
+}
+
 
 // Route to render the login page
 app.get('/login', (req, res) => {
