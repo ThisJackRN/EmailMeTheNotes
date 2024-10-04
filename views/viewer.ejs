@@ -11,6 +11,16 @@
             document.documentElement.setAttribute('data-theme', newMode);
             document.getElementById('theme-stylesheet').href = newMode === 'dark' ? '/static/dark-styles.css' : '/static/styles.css';
         }
+
+        function downloadCurrentFile() {
+            var fileUrl = '<%= fileUrl %>';
+            var filename = '<%= filename %>';
+            if (fileUrl && filename) {
+                window.location.href = fileUrl;
+            } else {
+                alert('No file information available.');
+            }
+        }
     </script>
     <% var isDarkMode = typeof isDarkMode !== 'undefined' ? isDarkMode : false; %>
     <link id="theme-stylesheet" rel="stylesheet" href="<%= isDarkMode ? '/static/dark-styles.css' : '/static/styles.css' %>">
@@ -22,8 +32,7 @@
         <div class="paper-page">
             <% if (content) { %>
                 <div><%- content %></div>
-            <% } else if (typeof fileUrl !== 'undefined' && typeof filename !== 'undefined') { %>
-                <p>File: <a href="<%= fileUrl %>"><%= filename %></a></p>
+                <button onclick="downloadCurrentFile()">Download File</button>
             <% } else { %>
                 <p>No file information available.</p>
             <% } %>

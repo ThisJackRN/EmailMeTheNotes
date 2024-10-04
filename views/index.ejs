@@ -33,8 +33,8 @@
     }
 
     .folder img {
-        width: 50px;
-        height: 50px;
+        width: 75px;
+        height: 75px;
         margin-bottom: 10px;
     }
 
@@ -67,12 +67,12 @@
 
     document.addEventListener('DOMContentLoaded', function () {
         const fileIcons = {
-            'pdf': '/static/icons/pdf-icon.png',
-            'doc': '/static/icons/doc-icon.png',
-            'docx': '/static/icons/office.png',
+            'pdf': '/static/icons/pdf.png',
+            'doc': '/static/icons/doc.png',
+            'docx': '/static/icons/word.png',
             'jpg': '/static/icons/jpg-icon.png',
             'png': '/static/icons/png-icon.png',
-            'default': '/static/icons/office.png'
+            'default': '/static/icons/word.png'
         };
 
         function getFileIcon(extension) {
@@ -83,20 +83,27 @@
             .then(response => response.json())
             .then(data => {
                 const fileSystem = document.getElementById('file-system');
-                data.forEach(file => {
-                    const fileExtension = file.name.split('.').pop().toLowerCase();
-                    const folderDiv = document.createElement('div');
-                    folderDiv.className = 'folder';
-                    folderDiv.innerHTML = `
-                        <a href="/download/${file.name}" download data-toggle="tooltip" title="${file.description ? file.description : 'No description available'}">
-                            <img src="${getFileIcon(fileExtension)}" alt="File Icon">
-                            <span>${file.name}</span>
-                            <span style="font-size: 10px; color: #666;">${file.username ? file.username : 'Unknown'}</span>
-                        </a>
-                        ${fileExtension === 'docx' ? `<button class="view-button" onclick="viewDocx('${file.name}')">View</button>` : ''}
-                    `;
-                    fileSystem.appendChild(folderDiv);
-                });
+                if (data.length === 0) {
+                    const noFilesMessage = document.createElement('div');
+                    noFilesMessage.className = 'no-files-message';
+                    noFilesMessage.textContent = 'No... files? :(';
+                    fileSystem.appendChild(noFilesMessage);
+                } else {
+                    data.forEach(file => {
+                        const fileExtension = file.name.split('.').pop().toLowerCase();
+                        const folderDiv = document.createElement('div');
+                        folderDiv.className = 'folder';
+                        folderDiv.innerHTML = `
+                            <a href="/download/${file.name}" download data-toggle="tooltip" title="${file.description ? file.description : 'No description available'}">
+                                <img src="${getFileIcon(fileExtension)}" alt="File Icon">
+                                <span>${file.name}</span>
+                                <span style="font-size: 10px; color: #666;">${file.username ? file.username : 'Unknown'}</span>
+                            </a>
+                            ${fileExtension === 'docx' ? `<button class="view-button" onclick="viewDocx('${file.name}')">View</button>` : ''}
+                        `;
+                        fileSystem.appendChild(folderDiv);
+                    });
+                }
 
                 // Apply dark mode if enabled
                 if (localStorage.getItem('darkMode') === 'enabled' && window.applyDarkModeToFolders) {

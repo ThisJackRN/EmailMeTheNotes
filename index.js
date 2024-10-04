@@ -28,6 +28,9 @@ app.set('views', path.join(__dirname, 'views'));
 // Serve static files from the 'public' directory
 app.use('/static', express.static(path.join(__dirname, 'static')));
 
+// Serve files from the 'uploads' directory
+app.use('/uploads', express.static(uploadDir));
+
 // Use cookie-parser middleware
 app.use(cookieParser());
 
@@ -330,7 +333,7 @@ app.get('/view/:filename', (req, res) => {
           .then(result => {
             console.log('Raw text extraction successful:', result.value); // Debugging statement
             const rawText = result.value.trim() ? result.value : 'No content available';
-            res.render('viewer', { title: 'View File', content: `<pre>${rawText}</pre>`, isLoggedIn });
+            res.render('viewer', { title: 'View File', content: `<pre>${rawText}</pre>`, isLoggedIn, fileUrl: `/uploads/${filename}`, filename });
           })
           .catch(err => {
             console.error('Error extracting raw text from .docx file:', err);
@@ -339,7 +342,7 @@ app.get('/view/:filename', (req, res) => {
       });
     } else {
       const fileUrl = `/uploads/${filename}`;
-      res.render('viewer', { title: 'View File', content: `<iframe src="${fileUrl}" width="100%" height="600px"></iframe>`, isLoggedIn });
+      res.render('viewer', { title: 'View File', content: `<iframe src="${fileUrl}" width="100%" height="600px"></iframe>`, isLoggedIn, fileUrl, filename });
     }
   });
 });
