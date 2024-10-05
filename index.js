@@ -8,6 +8,7 @@ const mariadb = require('mariadb');
 const cookieParser = require("cookie-parser")
 const sgMail = require('@sendgrid/mail')
 require('dotenv').config();
+const sanitizeHtml = require('sanitize-html');
 
 const fs = require('fs');
 const mammoth = require('mammoth');
@@ -98,6 +99,7 @@ async function initializeDatabase() {
 }
 initializeDatabase();
 
+
 // Route to render the signup page
 app.get('/signup', (req, res) => {
   res.render('signup', { title: 'Sign Up' });
@@ -105,7 +107,16 @@ app.get('/signup', (req, res) => {
 
 // Route for user signup
 app.post('/signup', async (req, res) => {
-  const { username, password, email } = req.body;
+  // Sanitize input
+  const username = sanitizeHtml(req.body.username);
+  const password = sanitizeHtml(req.body.password);
+  const email = sanitizeHtml(req.body.email);
+
+  // Validate username
+  const usernameRegex = /^[A-Za-z0-9_]{1,12}$/;
+  if (!usernameRegex.test(username)) {
+    return res.render('signup', { title: 'Sign Up', error: 'Username must be alphanumeric and no more than 12 characters long' });
+  }
 
   // Validate password
   const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
@@ -171,9 +182,13 @@ app.get('/beta', (req, res) => {
   res.render('beta', { title: 'beta' });
 });
 
+
 // Route for user login
 app.post('/login', async (req, res) => {
-  const { username, password } = req.body;
+  // Sanitize input
+  const username = sanitizeHtml(req.body.username);
+  const password = sanitizeHtml(req.body.password);
+
   let conn;
   try {
     conn = await pool.getConnection();
@@ -246,15 +261,17 @@ app.post('/upload', upload.single('file'), async (req, res) => {
   }
 
   const { name, description } = req.body;
+  const sanitizedName = sanitizeHtml(name);
+  const sanitizedDescription = sanitizeHtml(description);
   const originalName = req.file.originalname;
   const fileExtension = path.extname(originalName);
-  let newFilename = name ? name + fileExtension : originalName;
+  let newFilename = sanitizedName ? sanitizedName + fileExtension : originalName;
   let finalPath = path.join(uploadDir, newFilename);
   let counter = 0;
 
   while (fs.existsSync(finalPath)) {
     counter++;
-    newFilename = name ? `${name}(${counter})${fileExtension}` : `${path.parse(originalName).name}(${counter})${fileExtension}`;
+    newFilename = sanitizedName ? `${sanitizedName}(${counter})${fileExtension}` : `${path.parse(originalName).name}(${counter})${fileExtension}`;
     finalPath = path.join(uploadDir, newFilename);
   }
 
@@ -266,7 +283,7 @@ app.post('/upload', upload.single('file'), async (req, res) => {
     let conn;
     try {
       conn = await pool.getConnection();
-      await conn.query("INSERT INTO files (user_id, filename, description) VALUES (?, ?, ?)", [req.session.userId, newFilename, description || '']);
+      await conn.query("INSERT INTO files (user_id, filename, description) VALUES (?, ?, ?)", [req.session.userId, newFilename, sanitizedDescription || '']);
       res.send('<script>alert("Upload complete!"); window.location.href="/upload";</script>');
     } catch (err) {
       console.error('Error uploading file:', err);

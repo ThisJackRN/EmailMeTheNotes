@@ -23,6 +23,7 @@
     "mariadb": "^3.3.2",
     "multer": "^1.4.5-lts.1",
     "node-pandoc": "^0.3.0",
+    "sanitize-html": "^2.13.1",
     "sqlite3": "^5.1.7"
   }
 }
