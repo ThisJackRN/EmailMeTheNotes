@@ -119,8 +119,7 @@ app.post('/signup', async (req, res) => {
   }
 
   // Validate password
-  const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
-  if (!passwordRegex.test(password)) {
+  const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;  if (!passwordRegex.test(password)) {
     return res.render('signup', { title: 'Sign Up', error: 'Password must be at least 8 characters long, contain at least one uppercase letter, and one special character' });
   }
 
@@ -182,22 +181,51 @@ app.get('/beta', (req, res) => {
   res.render('beta', { title: 'beta' });
 });
 
-
 // Route for user login
 app.post('/login', async (req, res) => {
   // Sanitize input
   const username = sanitizeHtml(req.body.username);
   const password = sanitizeHtml(req.body.password);
 
+  console.log('Login request received:', { username });
+
   let conn;
   try {
     conn = await pool.getConnection();
-    const user = await conn.query("SELECT * FROM users WHERE username = ?", [username]);
-    if (user.length === 0 || !(await bcrypt.compare(password, user[0].password))) {
+    console.log('Database connection established');
+
+    // Fetch the user from the database
+    const [rows] = await conn.query("SELECT * FROM users WHERE username = ?", [username]);
+    console.log('Database query result:', rows);
+
+    if (!rows || rows.length === 0) {
+      console.log('User not found:', username);
       return res.redirect('/login?error=Invalid credentials');
     }
-    req.session.userId = user[0].id;
-    res.redirect('/');
+
+    const user = rows[0];
+    console.log('User fetched from database:', user);
+
+    // Ensure the user object contains the password property
+    if (!user || !user.password) {
+      console.log('User password not found:', user);
+      return res.redirect('/login?error=Invalid credentials');
+    }
+
+    // Validate the password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    console.log('Password validation result:', isPasswordValid);
+
+    if (!isPasswordValid) {
+      console.log('Invalid password for user:', username);
+      return res.redirect('/login?error=Invalid credentials');
+    }
+
+    // Set the user ID in the session
+    req.session.userId = user.id.toString(); // Convert BigInt to string if necessary
+    console.log('Session userId set:', req.session.userId);
+
+    res.redirect('/'); // Redirect to home page after successful login
   } catch (err) {
     console.error('Error during login:', err);
     res.redirect('/login?error=Invalid credentials');
@@ -439,6 +467,170 @@ app.get('/view/:filename', (req, res) => {
     }
   });
 });
+
+
+// Middleware to check if user is authenticated
+function isAuthenticated(req, res, next) {
+  if (req.session.userId) {
+    return next();
+  }
+  res.redirect('/login');
+}
+
+// Profile route
+app.get('/profile', isAuthenticated, async (req, res) => {
+  const userId = req.session.userId;
+  const [uploads] = await pool.query('SELECT * FROM files WHERE user_id = ?', [userId]);
+  const [user] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
+  res.render('profile', { title: 'Profile', uploads, user: user[0], isLoggedIn: true, darkMode: req.session.darkMode });
+});
+
+// Settings route
+app.get('/settings', isAuthenticated, async (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const [user] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
+    if (!user || user.length === 0) {
+      throw new Error('User not found');
+    }
+    res.render('settings', { 
+      title: 'Settings', 
+      user: user[0], 
+      isLoggedIn: true, 
+      darkMode: req.session.darkMode || false 
+    });
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    res.render('settings', { 
+      title: 'Settings', 
+      error: 'Error fetching user', 
+      user: {}, 
+      isLoggedIn: true, 
+      darkMode: req.session.darkMode || false 
+    });
+  }
+});
+
+// Route to update username
+app.post('/update-username', isAuthenticated, async (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const { username } = req.body;
+
+    await pool.query('UPDATE users SET username = ? WHERE id = ?', [username, userId]);
+
+    res.render('settings', { 
+      title: 'Settings', 
+      success: 'Username updated successfully', 
+      user: { ...req.session.user, username }, 
+      isLoggedIn: true, 
+      darkMode: req.session.darkMode || false 
+    });
+  } catch (error) {
+    console.error('Error updating username:', error);
+    res.render('settings', { 
+      title: 'Settings', 
+      error: 'Error updating username', 
+      user: req.session.user, 
+      isLoggedIn: true, 
+      darkMode: req.session.darkMode || false 
+    });
+  }
+});
+
+// Route to update email
+app.post('/update-email', isAuthenticated, async (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const { email } = req.body;
+
+    await pool.query('UPDATE users SET email = ? WHERE id = ?', [email, userId]);
+
+    res.render('settings', { 
+      title: 'Settings', 
+      success: 'Email updated successfully', 
+      user: { ...req.session.user, email }, 
+      isLoggedIn: true, 
+      darkMode: req.session.darkMode || false 
+    });
+  } catch (error) {
+    console.error('Error updating email:', error);
+    res.render('settings', { 
+      title: 'Settings', 
+      error: 'Error updating email', 
+      user: req.session.user, 
+      isLoggedIn: true, 
+      darkMode: req.session.darkMode || false 
+    });
+  }
+});
+
+app.post('/update-password', isAuthenticated, async (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const { currentPassword, password } = req.body;
+
+    // Fetch the current user
+    const [rows] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
+
+    // Ensure rows contains the user and log the result
+    console.log('Query result:', rows);
+
+    // Access the user data directly (no destructuring needed)
+    const user = rows[0]; // Since rows is an array, access the first element
+
+    // Ensure the user object contains the password property
+    if (!user || !user.password) {
+      throw new Error('User password not found');
+    }
+
+    // Validate current password
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isPasswordValid) {
+      throw new Error('Current password is incorrect');
+    }
+
+    // Update password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const updateResult = await pool.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, userId]);
+
+    // Log the result of the update query
+    console.log('Password update result:', updateResult);
+
+    // Verify if the password was updated
+    const [updatedUserRows] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
+    const updatedUser = updatedUserRows[0];
+    console.log('Updated user:', updatedUser);
+
+    // Update session with new user data
+    req.session.user = { ...req.session.user, password: hashedPassword };
+
+    res.render('settings', { 
+      title: 'Settings', 
+      success: 'Password updated successfully', 
+      user: req.session.user, 
+      isLoggedIn: true, 
+      darkMode: req.session.darkMode || false 
+    });
+  } catch (error) {
+    console.error('Error updating password:', error);
+    res.render('settings', { 
+      title: 'Settings', 
+      error: 'Error updating password', 
+      user: req.session.user, 
+      isLoggedIn: true, 
+      darkMode: req.session.darkMode || false 
+    });
+  }
+});3
+
+// Delete upload route
+app.post('/delete-upload/:id', isAuthenticated, async (req, res) => {
+  const uploadId = req.params.id;
+  await pool.query('DELETE FROM files WHERE id = ?', [uploadId]);
+  res.redirect('/profile');
+});
+
 
 // Route to toggle dark mode
 app.post('/toggle-dark-mode', (req, res) => {
