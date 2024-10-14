@@ -37,11 +37,11 @@ app.use('/uploads', express.static(uploadDir));
 // Use cookie-parser middleware
 app.use(cookieParser());
 
-// Configure session middleware
+
 app.use(session({
   secret: process.env.SECERT_KEY,
   resave: false,
-  saveUninitialized: true,
+  saveUninitialized: false,
 }));
 
 // Middleware to parse request bodies
@@ -181,7 +181,6 @@ app.get('/beta', (req, res) => {
   res.render('beta', { title: 'beta' });
 });
 
-// Route for user login
 app.post('/login', async (req, res) => {
   // Sanitize input
   const username = sanitizeHtml(req.body.username);
@@ -194,20 +193,21 @@ app.post('/login', async (req, res) => {
     conn = await pool.getConnection();
     console.log('Database connection established');
 
-    // Fetch the user from the database
-    const [rows] = await conn.query("SELECT * FROM users WHERE username = ?", [username]);
+    // Fetch the user from the database, ensuring case-insensitive matching
+    const rows = await conn.query("SELECT * FROM users WHERE LOWER(username) = LOWER(?)", [username]);
     console.log('Database query result:', rows);
 
+    // Check if user exists
     if (!rows || rows.length === 0) {
       console.log('User not found:', username);
       return res.redirect('/login?error=Invalid credentials');
     }
 
-    const user = rows[0];
+    const user = rows[0]; // Access the first row of the result
     console.log('User fetched from database:', user);
 
     // Ensure the user object contains the password property
-    if (!user || !user.password) {
+    if (!user.password) {
       console.log('User password not found:', user);
       return res.redirect('/login?error=Invalid credentials');
     }
@@ -221,18 +221,26 @@ app.post('/login', async (req, res) => {
       return res.redirect('/login?error=Invalid credentials');
     }
 
-    // Set the user ID in the session
+    // Set the user ID and user data in the session
     req.session.userId = user.id.toString(); // Convert BigInt to string if necessary
+    req.session.user = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      isAdmin: user.isAdmin,
+    }; // Store relevant user information in the session
     console.log('Session userId set:', req.session.userId);
 
     res.redirect('/'); // Redirect to home page after successful login
   } catch (err) {
     console.error('Error during login:', err);
-    res.redirect('/login?error=Invalid credentials');
+    res.redirect('/login?error=An error occurred during login');
   } finally {
-    if (conn) conn.release();
+    if (conn) conn.release(); // Always release the connection back to the pool
   }
 });
+
+
 
 // Route for user logout
 app.get('/logout', (req, res) => {
@@ -566,63 +574,101 @@ app.post('/update-email', isAuthenticated, async (req, res) => {
 });
 
 app.post('/update-password', isAuthenticated, async (req, res) => {
+  console.log('Received update password request');
+  console.log('Request body:', req.body);
+  console.log('Session:', req.session);
+
+  const { currentPassword, password: newPassword } = req.body;
+  const userId = req.session.userId;
+
   try {
-    const userId = req.session.userId;
-    const { currentPassword, password } = req.body;
-
-    // Fetch the current user
-    const [rows] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
-
-    // Ensure rows contains the user and log the result
-    console.log('Query result:', rows);
-
-    // Access the user data directly (no destructuring needed)
-    const user = rows[0]; // Since rows is an array, access the first element
-
-    // Ensure the user object contains the password property
-    if (!user || !user.password) {
-      throw new Error('User password not found');
+    // Validate input
+    if (!currentPassword || !newPassword) {
+      throw new Error('Both current and new passwords are required.');
     }
 
-    // Validate current password
+    if (currentPassword === newPassword) {
+      throw new Error('New password cannot be the same as the current password.');
+    }
+
+    // Step 1: Retrieve the user from the database
+    const user = await getUserById(userId);
+    if (!user) {
+      throw new Error('User not found. Please log in again.');
+    }
+
+    console.log('User found:', user);
+
+    // Step 2: Check if the current password is correct
     const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
     if (!isPasswordValid) {
-      throw new Error('Current password is incorrect');
+      throw new Error('Current password is incorrect.');
     }
 
-    // Update password
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const updateResult = await pool.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, userId]);
+    // Step 3: Hash the new password
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
-    // Log the result of the update query
-    console.log('Password update result:', updateResult);
+    // Step 4: Update password in the database
+    await updatePassword(userId, hashedNewPassword);
 
-    // Verify if the password was updated
-    const [updatedUserRows] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
-    const updatedUser = updatedUserRows[0];
-    console.log('Updated user:', updatedUser);
+    console.log('Password updated successfully for userId:', userId);
 
-    // Update session with new user data
-    req.session.user = { ...req.session.user, password: hashedPassword };
+    // Step 5: Update session with the new password hash
+    req.session.user.password = hashedNewPassword;
 
-    res.render('settings', { 
-      title: 'Settings', 
-      success: 'Password updated successfully', 
-      user: req.session.user, 
-      isLoggedIn: true, 
-      darkMode: req.session.darkMode || false 
+    // Step 6: Send success response
+    res.render('settings', {
+      title: 'Settings',
+      success: 'Password updated successfully.',
+      user: req.session.user,
+      isLoggedIn: true,
+      darkMode: req.session.darkMode || false,
     });
+
   } catch (error) {
     console.error('Error updating password:', error);
-    res.render('settings', { 
-      title: 'Settings', 
-      error: 'Error updating password', 
-      user: req.session.user, 
-      isLoggedIn: true, 
-      darkMode: req.session.darkMode || false 
+    res.render('settings', {
+      title: 'Settings',
+      error: `Error updating password: ${error.message}`,
+      user: req.session.user,
+      isLoggedIn: true,
+      darkMode: req.session.darkMode || false,
     });
   }
-});3
+});
+
+// Helper function to retrieve user by ID
+async function getUserById(userId) {
+  try {
+    console.log('Fetching user with userId:', userId);
+    const [rows] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
+
+    if (rows.length === 0) {
+      console.warn(`No user found for userId: ${userId}`);
+      return null;
+    }
+
+    return rows; // return the user object
+  } catch (error) {
+    console.error('Database error fetching user:', error);
+    throw new Error('Failed to retrieve user data.');
+  }
+}
+
+// Helper function to update password
+async function updatePassword(userId, newPasswordHash) {
+  try {
+    const result = await pool.query('UPDATE users SET password = ? WHERE id = ?', [newPasswordHash, userId]);
+    if (result.affectedRows === 0) {
+      throw new Error('Failed to update password.');
+    }
+  } catch (error) {
+    console.error('Database error updating password:', error);
+    throw new Error('Failed to update password.');
+  }
+}
+
+
 
 // Delete upload route
 app.post('/delete-upload/:id', isAuthenticated, async (req, res) => {
