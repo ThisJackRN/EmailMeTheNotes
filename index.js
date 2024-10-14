@@ -21,6 +21,16 @@ const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }
+// Example of how the isAuthenticated middleware might look
+// Note: This is just an example, you should replace this with your actual implementation
+function isAuthenticated(req, res, next) {
+  if (req.session && req.session.userId) {
+    req.isAuthenticated = true;
+    return next();
+  }
+  req.isAuthenticated = false;
+  res.redirect('/login');
+}
 
 // Set the view engine to ejs
 app.set('view engine', 'ejs');
@@ -477,14 +487,6 @@ app.get('/view/:filename', (req, res) => {
 });
 
 
-// Middleware to check if user is authenticated
-function isAuthenticated(req, res, next) {
-  if (req.session.userId) {
-    return next();
-  }
-  res.redirect('/login');
-}
-
 // Profile route
 app.get('/profile', isAuthenticated, async (req, res) => {
   const userId = req.session.userId;
@@ -575,48 +577,83 @@ app.post('/update-email', isAuthenticated, async (req, res) => {
 
 app.post('/update-password', isAuthenticated, async (req, res) => {
   console.log('Received update password request');
-  console.log('Request body:', req.body);
-  console.log('Session:', req.session);
-
   const { currentPassword, password: newPassword } = req.body;
   const userId = req.session.userId;
 
+  console.log('Session userId:', userId);
+
+  if (!currentPassword || !newPassword) {
+    return res.render('settings', {
+      title: 'Settings',
+      error: 'Both current and new passwords are required.',
+      user: req.session.user,
+      isLoggedIn: true,
+      darkMode: req.session.darkMode || false,
+    });
+  }
+
+  if (currentPassword === newPassword) {
+    return res.render('settings', {
+      title: 'Settings',
+      error: 'New password cannot be the same as the current password.',
+      user: req.session.user,
+      isLoggedIn: true,
+      darkMode: req.session.darkMode || false,
+    });
+  }
+
+  let connection;
   try {
-    // Validate input
-    if (!currentPassword || !newPassword) {
-      throw new Error('Both current and new passwords are required.');
-    }
+    // Step 1: Get a database connection and start a transaction
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
 
-    if (currentPassword === newPassword) {
-      throw new Error('New password cannot be the same as the current password.');
-    }
+    // Step 2: Retrieve the user from the database
+    console.log('Fetching user with userId:', userId);
+    const [rows] = await connection.query('SELECT * FROM users WHERE id = ?', [userId]);
+    console.log('Database query result:', rows);
 
-    // Step 1: Retrieve the user from the database
-    const user = await getUserById(userId);
-    if (!user) {
+    if (!rows || rows.length === 0) {
+      console.error(`User not found for userId: ${userId}`);
       throw new Error('User not found. Please log in again.');
     }
 
-    console.log('User found:', user);
+    const user = rows[0];
+    console.log('User fetched from database:', user);
 
-    // Step 2: Check if the current password is correct
+    // Ensure the user object contains the password property
+    if (!user || !user.password) {
+      console.error('User password not found:', user);
+      throw new Error('User password not found.');
+    }
+
+    // Step 3: Verify the current password
     const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    console.log('Password validation result:', isPasswordValid);
+
     if (!isPasswordValid) {
       throw new Error('Current password is incorrect.');
     }
 
-    // Step 3: Hash the new password
+    // Step 4: Hash the new password
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
-    // Step 4: Update password in the database
-    await updatePassword(userId, hashedNewPassword);
+    // Step 5: Update the password in the database
+    const [updateResult] = await connection.query(
+      'UPDATE users SET password = ? WHERE id = ?',
+      [hashedNewPassword, userId]
+    );
+
+    if (updateResult.affectedRows === 0) {
+      throw new Error('Failed to update password. No rows affected.');
+    }
+
+    // Step 6: Commit the transaction
+    await connection.commit();
 
     console.log('Password updated successfully for userId:', userId);
 
-    // Step 5: Update session with the new password hash
-    req.session.user.password = hashedNewPassword;
-
-    // Step 6: Send success response
+    // Step 7: Send success response
     res.render('settings', {
       title: 'Settings',
       success: 'Password updated successfully.',
@@ -624,9 +661,12 @@ app.post('/update-password', isAuthenticated, async (req, res) => {
       isLoggedIn: true,
       darkMode: req.session.darkMode || false,
     });
-
   } catch (error) {
     console.error('Error updating password:', error);
+
+    // Rollback the transaction in case of any error
+    if (connection) await connection.rollback();
+
     res.render('settings', {
       title: 'Settings',
       error: `Error updating password: ${error.message}`,
@@ -634,41 +674,10 @@ app.post('/update-password', isAuthenticated, async (req, res) => {
       isLoggedIn: true,
       darkMode: req.session.darkMode || false,
     });
+  } finally {
+    if (connection) connection.release(); // Always release the connection
   }
 });
-
-// Helper function to retrieve user by ID
-async function getUserById(userId) {
-  try {
-    console.log('Fetching user with userId:', userId);
-    const [rows] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
-
-    if (rows.length === 0) {
-      console.warn(`No user found for userId: ${userId}`);
-      return null;
-    }
-
-    return rows; // return the user object
-  } catch (error) {
-    console.error('Database error fetching user:', error);
-    throw new Error('Failed to retrieve user data.');
-  }
-}
-
-// Helper function to update password
-async function updatePassword(userId, newPasswordHash) {
-  try {
-    const result = await pool.query('UPDATE users SET password = ? WHERE id = ?', [newPasswordHash, userId]);
-    if (result.affectedRows === 0) {
-      throw new Error('Failed to update password.');
-    }
-  } catch (error) {
-    console.error('Database error updating password:', error);
-    throw new Error('Failed to update password.');
-  }
-}
-
-
 
 // Delete upload route
 app.post('/delete-upload/:id', isAuthenticated, async (req, res) => {
