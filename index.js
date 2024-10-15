@@ -10,6 +10,7 @@ const sgMail = require('@sendgrid/mail')
 require('dotenv').config();
 const sanitizeHtml = require('sanitize-html');
 const expressSitemapXml = require('express-sitemap-xml')
+const favicon = require('serve-favicon');
 
 const fs = require('fs');
 const mammoth = require('mammoth');
@@ -22,6 +23,7 @@ const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }
+app.use(favicon(path.join(__dirname, 'static', 'favicon.ico')));
 
 app.use(expressSitemapXml(getUrls, process.env.URL));
 
