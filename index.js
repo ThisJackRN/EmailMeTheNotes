@@ -56,6 +56,7 @@ function isAuthenticated(req, res, next) {
   res.redirect('/login');
 }
 
+
 app.use((req, res, next) => {
   res.locals.adsenseAccount = process.env.GOOGLE_ADSENSE_ACCOUNT;
   next();
@@ -137,6 +138,7 @@ async function initializeDatabase() {
   }
 }
 initializeDatabase();
+
 
 
 // Route to render the signup page
@@ -781,4 +783,9 @@ app.use((req, res, next) => {
   const darkMode = req.cookies.darkMode === 'true'; // Check if darkMode cookie exists and is set to true
   res.locals.isDarkMode = darkMode; // Pass it to the views
   next();
+});
+
+// Handle 404 errors
+app.use((req, res, next) => {
+  res.status(404).render('404', { title: 'Page Not Found', isLoggedIn: req.session.userId, darkMode: req.session.darkMode });
 });
