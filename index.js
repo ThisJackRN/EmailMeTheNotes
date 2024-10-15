@@ -153,20 +153,45 @@ app.post('/signup', async (req, res) => {
 
     res.render('signup', { title: 'Sign Up', success: 'Signup successful! Please check your email for a welcome message.' });
   } catch (err) {
-    console.error('Error during signup:', err);
-    res.render('signup', { title: 'Sign Up', error: 'Error creating user' });
+    // Log the error with a unique identifier for debugging purposes
+    const errorId = Date.now(); // You can use a more sophisticated method to generate unique IDs
+    console.error(`Error during signup [${errorId}]:`, err);
+
+    // Render the signup page with a generic error message and the unique error ID
+    res.render('signup', { 
+        title: 'Sign Up', 
+        error: `An error occurred while creating your account. Please try again later. (Error ID: ${errorId})` 
+    });
   } finally {
-    if (conn) conn.release();
-  }
+    if (conn) {
+        try {
+            conn.release();
+        } catch (releaseErr) {
+            console.error('Error releasing the connection:', releaseErr);
+        }
+      }
+  } 
 });
 
 sgMail.setApiKey(process.env.SEND_API);
 
 function sendWelcomeEmail(to) {
+  // Email validation function
+  const isValidEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // Validate the email address
+  if (!isValidEmail(to)) {
+    console.error('Invalid email address:', to);
+    return; // Exit the function if the email is invalid
+  }
+
   const msg = {
     to,
     from: process.env.SENDER_EMAIL, // Change to your verified sender
-    subject: 'welcome to Email Me The Notes!',
+    subject: 'Welcome to Email Me The Notes!',
     text: 'Thank you for signing up!',
     html: '<strong>Thank you for signing up! We hope you enjoy and upload a lot of notes!</strong>',
   };
@@ -174,13 +199,13 @@ function sendWelcomeEmail(to) {
   sgMail
     .send(msg)
     .then(() => {
-      console.log('Welcome email sent');
+      console.log('Welcome email sent to:', to);
     })
     .catch((error) => {
       console.error('Error sending welcome email:', error);
     });
-}
-
+  }
+  
 // Route to render the login page
 app.get('/login', (req, res) => {
   const error = req.query.error || null;
