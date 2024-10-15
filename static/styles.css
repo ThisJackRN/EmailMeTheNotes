@@ -22,6 +22,12 @@ body {
     border-radius: 4px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
+
+.dark-mode-item {
+    background-color: #343a40; /* Dark background */
+    color: #fff; /* White text */
+  }
+
 .folder {
     display: flex;
     flex-direction: column;

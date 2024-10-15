@@ -205,7 +205,7 @@ app.post('/login', async (req, res) => {
 
     // Fetch the user from the database, ensuring case-insensitive matching
     const rows = await conn.query("SELECT * FROM users WHERE LOWER(username) = LOWER(?)", [username]);
-    console.log('Database query result:', rows);
+    //console.log('Database query result:', rows);
 
     // Check if user exists
     if (!rows || rows.length === 0) {
@@ -214,7 +214,7 @@ app.post('/login', async (req, res) => {
     }
 
     const user = rows[0]; // Access the first row of the result
-    console.log('User fetched from database:', user);
+    //console.log('User fetched from database:', user);
 
     // Ensure the user object contains the password property
     if (!user.password) {
@@ -486,13 +486,40 @@ app.get('/view/:filename', (req, res) => {
   });
 });
 
-
-// Profile route
 app.get('/profile', isAuthenticated, async (req, res) => {
   const userId = req.session.userId;
-  const [uploads] = await pool.query('SELECT * FROM files WHERE user_id = ?', [userId]);
-  const [user] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
-  res.render('profile', { title: 'Profile', uploads, user: user[0], isLoggedIn: true, darkMode: req.session.darkMode });
+
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    console.log('Database connection established');
+
+    // Fetch files for the logged-in user
+    const [files] = await conn.query('SELECT * FROM files WHERE user_id = ?', [userId]);
+    console.log('Files fetched from database:', files);
+
+    // Ensure files is an array
+    const uploads = Array.isArray(files) ? files : [files];
+    console.log('Uploads array:', uploads);
+
+    res.render('profile', {
+      title: 'Your Profile',
+      isLoggedIn: true,
+      darkMode: req.session.darkMode || false,
+      uploads: uploads, // Pass the files as uploads to the template
+    });
+  } catch (err) {
+    console.error('Error fetching files:', err);
+    res.render('profile', {
+      title: 'Your Profile',
+      isLoggedIn: true,
+      darkMode: req.session.darkMode || false,
+      uploads: [],
+      error: 'An error occurred while fetching your files.',
+    });
+  } finally {
+    if (conn) conn.release(); // Always release the connection back to the pool
+  }
 });
 
 // Settings route
