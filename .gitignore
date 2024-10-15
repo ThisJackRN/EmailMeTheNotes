@@ -3,3 +3,5 @@ node_modules/
 uploads
 .env
 .docx
+.pdf
+.txt
