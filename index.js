@@ -9,6 +9,7 @@ const cookieParser = require("cookie-parser")
 const sgMail = require('@sendgrid/mail')
 require('dotenv').config();
 const sanitizeHtml = require('sanitize-html');
+const expressSitemapXml = require('express-sitemap-xml')
 
 const fs = require('fs');
 const mammoth = require('mammoth');
@@ -21,8 +22,29 @@ const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }
-// Example of how the isAuthenticated middleware might look
-// Note: This is just an example, you should replace this with your actual implementation
+
+app.use(expressSitemapXml(getUrls, process.env.URL));
+
+async function getUrls() {
+  const urlsFromDatabase = await getUrlsFromDatabase();
+  return ['/', ...urlsFromDatabase]; // Add the main page to the sitemap
+}
+
+async function getUrlsFromDatabase() {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const files = await conn.query("SELECT filename FROM files");
+    const urls = files.map(file => `/view/${file.filename}`);
+    return urls;
+  } catch (err) {
+    console.error('Error fetching URLs from database:', err);
+    return [];
+  } finally {
+    if (conn) conn.release();
+  }
+}
+
 function isAuthenticated(req, res, next) {
   if (req.session && req.session.userId) {
     req.isAuthenticated = true;
