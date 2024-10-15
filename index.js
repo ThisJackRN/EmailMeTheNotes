@@ -56,6 +56,11 @@ function isAuthenticated(req, res, next) {
   res.redirect('/login');
 }
 
+app.use((req, res, next) => {
+  res.locals.adsenseAccount = process.env.GOOGLE_ADSENSE_ACCOUNT;
+  next();
+});
+
 // Set the view engine to ejs
 app.set('view engine', 'ejs');
 
