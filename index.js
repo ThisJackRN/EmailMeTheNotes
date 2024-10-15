@@ -611,7 +611,7 @@ app.post('/update-password', isAuthenticated, async (req, res) => {
 
     // Fetch the user from the database
     const rows = await conn.query('SELECT * FROM users WHERE id = ?', [userId]);
-    console.log('Database query result:', rows);
+    //console.log('Database query result:', rows);
 
     // Check if user exists
     if (!rows || rows.length === 0) {
@@ -620,7 +620,7 @@ app.post('/update-password', isAuthenticated, async (req, res) => {
     }
 
     const user = rows[0]; // Access the first row of the result
-    console.log('User fetched from database:', user);
+    //console.log('User fetched from database:', user);
 
     // Ensure the user object contains the password property
     if (!user.password) {
