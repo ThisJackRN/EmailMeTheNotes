@@ -166,9 +166,9 @@ function sendWelcomeEmail(to) {
   const msg = {
     to,
     from: process.env.SENDER_EMAIL, // Change to your verified sender
-    subject: 'Welcome to Our Service',
+    subject: 'welcome to Email Me The Notes!',
     text: 'Thank you for signing up!',
-    html: '<strong>Thank you for signing up!</strong>',
+    html: '<strong>Thank you for signing up! We hope you enjoy and upload a lot of notes!</strong>',
   };
 
   sgMail
