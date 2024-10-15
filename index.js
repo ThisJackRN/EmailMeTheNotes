@@ -576,10 +576,12 @@ app.post('/update-email', isAuthenticated, async (req, res) => {
 });
 
 app.post('/update-password', isAuthenticated, async (req, res) => {
-  console.log('Received update password request');
-  const { currentPassword, password: newPassword } = req.body;
+  // Sanitize input
+  const currentPassword = sanitizeHtml(req.body.currentPassword);
+  const newPassword = sanitizeHtml(req.body.password);
   const userId = req.session.userId;
 
+  console.log('Received update password request');
   console.log('Session userId:', userId);
 
   if (!currentPassword || !newPassword) {
@@ -602,44 +604,49 @@ app.post('/update-password', isAuthenticated, async (req, res) => {
     });
   }
 
-  let connection;
+  let conn;
   try {
-    // Step 1: Get a database connection and start a transaction
-    connection = await pool.getConnection();
-    await connection.beginTransaction();
+    conn = await pool.getConnection();
+    console.log('Database connection established');
 
-    // Step 2: Retrieve the user from the database
-    console.log('Fetching user with userId:', userId);
-    const [rows] = await connection.query('SELECT * FROM users WHERE id = ?', [userId]);
+    // Fetch the user from the database
+    const rows = await conn.query('SELECT * FROM users WHERE id = ?', [userId]);
     console.log('Database query result:', rows);
 
+    // Check if user exists
     if (!rows || rows.length === 0) {
       console.error(`User not found for userId: ${userId}`);
       throw new Error('User not found. Please log in again.');
     }
 
-    const user = rows[0];
+    const user = rows[0]; // Access the first row of the result
     console.log('User fetched from database:', user);
 
     // Ensure the user object contains the password property
-    if (!user || !user.password) {
+    if (!user.password) {
       console.error('User password not found:', user);
       throw new Error('User password not found.');
     }
 
-    // Step 3: Verify the current password
+    // Validate the current password
     const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
     console.log('Password validation result:', isPasswordValid);
 
     if (!isPasswordValid) {
-      throw new Error('Current password is incorrect.');
+      return res.render('settings', {
+        title: 'Settings',
+        error: 'Current password is incorrect.',
+        user: req.session.user,
+        isLoggedIn: true,
+        darkMode: req.session.darkMode || false,
+      });
     }
 
-    // Step 4: Hash the new password
+    // Hash the new password
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
-    // Step 5: Update the password in the database
-    const [updateResult] = await connection.query(
+    // Update the password in the database
+    const updateResult = await conn.query(
       'UPDATE users SET password = ? WHERE id = ?',
       [hashedNewPassword, userId]
     );
@@ -648,12 +655,9 @@ app.post('/update-password', isAuthenticated, async (req, res) => {
       throw new Error('Failed to update password. No rows affected.');
     }
 
-    // Step 6: Commit the transaction
-    await connection.commit();
-
     console.log('Password updated successfully for userId:', userId);
 
-    // Step 7: Send success response
+    // Send success response
     res.render('settings', {
       title: 'Settings',
       success: 'Password updated successfully.',
@@ -661,21 +665,18 @@ app.post('/update-password', isAuthenticated, async (req, res) => {
       isLoggedIn: true,
       darkMode: req.session.darkMode || false,
     });
-  } catch (error) {
-    console.error('Error updating password:', error);
-
-    // Rollback the transaction in case of any error
-    if (connection) await connection.rollback();
+  } catch (err) {
+    console.error('Error updating password:', err);
 
     res.render('settings', {
       title: 'Settings',
-      error: `Error updating password: ${error.message}`,
+      error: `Error updating password: ${err.message}`,
       user: req.session.user,
       isLoggedIn: true,
       darkMode: req.session.darkMode || false,
     });
   } finally {
-    if (connection) connection.release(); // Always release the connection
+    if (conn) conn.release(); // Always release the connection back to the pool
   }
 });
 
