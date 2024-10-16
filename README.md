@@ -1,7 +1,7 @@
 # Email Me The Notes
 ##  What is this?
 
- - Email Me The Notes is a site I made to help lazy students like me and get a bunch of notes without having to go out and ask!
+ - Email Me The Notes is a site I made to help lazy students like me and get a bunch of notes without having to go out and ask! or another place to upload and shore notes as needed.
 
 ## NOTE: THIS IS BARELY A BETA
 
