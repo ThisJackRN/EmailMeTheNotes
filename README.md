@@ -1,20 +1,35 @@
+
 # Email Me The Notes
-##  What is this?
 
-- Email Me The Notes is a site I made to help lazy students like me and get a bunch of notes without having to go out and ask! or another place to upload and share notes as needed.
+**A web app designed for students to easily upload, share, and receive notes via email.**
 
-## NOTE: THIS IS BARELY A BETA
+## Features
+- **Upload Notes**: Share your notes with ease by uploading them to the platform.
+- **Email Delivery**: Receive notes directly via email for convenient access.
+- **Simple UI**: User-friendly interface for quick navigation.
+- **Automatic Formatting**: Automatically formats notes for better readability.
+- **Search Functionality**: Find notes based on course name, subject, or keywords.
+- **File Support**: Upload PDF, Word documents, and more.
 
- - I got most of what I need working (AND STABLE) but over time if this gets more popular I definitely would need to change a lot (Handling better of users/file storage). So consider this a run to see if anyone would fund this if not enjoy this open source project! 
+## Installation
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/ThisJackRN/EmailMeTheNotes.git
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Set up environment variables using `example.env`.
 
- 
-## How can I help?
- - Feel free to modify and edit the code with updates and things to help my code that is pretty much a Stackoverflow nightmare! If you also can't code or such feel free to make an issue request!
+4. Run the project:
+   ```bash
+   npm start
+   ```
 
-## Credit
-Me (ThisJackRN)
-[Twitter](https://x.com/ThisJackRN) (This has nothing to do with coding)
+## Contributing
+- Contributions are welcome! Feel free to fork the repository, make changes, and submit a pull request.
+- Report any issues or bugs by opening an issue on GitHub.
 
-## How can I support you?
-
-If for some reason in the future, you want to support me I'll make probably one of those buymeacoffee account (i don't even like coffee) most of the money would go towards server cost and such. but for now no need I got a year of this for free so gotta cook yknow...
+## Support
+This is a personal project meant to assist students. Support and feedback are always appreciated!
