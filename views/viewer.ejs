@@ -4,6 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= title %></title>
+    <style>
+    .button-container {
+         text-align: center;
+        margin: 20px 0;
+    }
+
+    .button-container .btn {
+      margin: 0 10px;
+    }
+
+    </style>
     <script>
         function toggleDarkMode() {
             var currentMode = document.documentElement.getAttribute('data-theme');
@@ -21,6 +32,17 @@
                 alert('No file information available.');
             }
         }
+
+        function emailCurrentFile() {
+            var fileUrl = '<%= fileUrl %>';
+            var filename = '<%= filename %>';
+            if (fileUrl && filename) {
+                var mailtoLink = 'mailto:?subject=' + encodeURIComponent('Check out this file: ' + filename) + '&body=' + encodeURIComponent('You can download the file from the following link: ' + fileUrl);
+                window.location.href = mailtoLink;
+            } else {
+                alert('No file information available.');
+            }
+        }
     </script>
     <% var isDarkMode = typeof isDarkMode !== 'undefined' ? isDarkMode : false; %>
     <link id="theme-stylesheet" rel="stylesheet" href="<%= isDarkMode ? '/static/dark-styles.css' : '/static/styles.css' %>">
@@ -28,13 +50,20 @@
 <body>
     <%- include('header.ejs', { isLoggedIn: isLoggedIn }) %>
     <div class="container">
-        <div class="paper-page dark_paper-page">
+        <div class="paper-page <%= isDarkMode ? 'dark_paper-page' : '' %>">
             <% if (content) { %>
                 <div><%- content %></div>
             <% } else { %>
                 <p>No file information available.</p>
             <% } %>
         </div>
+    </div>
+
+    <div class="button-container">
+        <button class="btn btn-primary" onclick="downloadCurrentFile()">Download</button>
+        <button class="btn btn-secondary" onclick="emailCurrentFile()">Email</button>
+    </div>
+
     <%- include('footer.ejs') %>
 </body>
 </html>
