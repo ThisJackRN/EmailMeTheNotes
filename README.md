@@ -5,7 +5,7 @@
 
 ## Features
 - **Upload Notes**: Share your notes with ease by uploading them to the platform.
-- **Email Delivery**: Receive notes directly via email for convenient access.
+- **Email Delivery**: Receive notes directly via email for convenient access. (gotta add a button for such but made it easy with nice urls.)
 - **Simple UI**: User-friendly interface for quick navigation.
 - **Automatic Formatting**: Automatically formats notes for better readability.
 - **Search Functionality**: Find notes based on course name, subject, or keywords.
