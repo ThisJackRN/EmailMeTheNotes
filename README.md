@@ -24,7 +24,7 @@
 
 4. Run the project:
    ```bash
-   npm start
+   node .
    ```
 
 ## Contributing
