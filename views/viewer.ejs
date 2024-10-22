@@ -5,15 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= title %></title>
     <style>
-    .button-container {
-         text-align: center;
-        margin: 20px 0;
+    .button-section-wrapper {
+        padding: 20px;
+    }
+
+    .button-section {
+        text-align: center;
+        margin: 20px auto;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        max-width: 800px; /* Optional: limit the max width */
+    }
+
+    /* Light mode background */
+    body:not(.dark-mode) .button-section {
+        background-color: #f8f9fa; /* Light background color */
+        color: #000; /* Dark text color */
+    }
+
+    /* Dark mode background */
+    body.dark-mode .button-section {
+        background-color: #343a40; /* Dark background color */
+        color: #fff; /* Light text color */
+    }
+
+    .button-section h2 {
+        margin-bottom: 10px;
     }
 
     .button-container .btn {
-      margin: 0 10px;
+        margin: 0 10px;
+        width: 150px; /* Set a fixed width for the buttons */
     }
-
     </style>
 <script>
     function toggleDarkMode() {
@@ -34,22 +58,17 @@
     }
 
     function emailCurrentFile() {
-    var fileUrl = '<%= fileUrl %>';
-    var filename = '<%= filename %>';
-    if (fileUrl && filename) {
-        var baseUrl = window.location.origin + '/uploads/';
-        var encodedFileUrl = baseUrl + encodeURIComponent(fileUrl.split('/uploads/')[1]);
-        var mailtoLink = 'mailto:?subject=' + encodeURIComponent('Check out this file: ' + filename) +
-            '&body=' + encodeURIComponent('You can download the file from the following link: ') +
-            encodeURIComponent(encodedFileUrl);
-
-        window.location.href = mailtoLink;
-    } else {
-        alert('No file information available.');
+        var fileUrl = '<%= fileUrl %>';
+        var filename = '<%= filename %>';
+        if (fileUrl && filename) {
+            var baseUrl = window.location.origin + '/uploads/';
+            var encodedFileUrl = baseUrl + encodeURIComponent(fileUrl.split('/uploads/')[1]);
+            var mailtoLink = 'mailto:?subject=' + encodeURIComponent('Check out this file: ' + filename) + '&body=' + encodeURIComponent('<html><body><p>You can download the file from the following link:</p><a href="' + encodedFileUrl + '" style="display: inline-block; padding: 10px 20px; font-size: 16px; color: #fff; background-color: #007bff; text-decoration: none; border-radius: 5px;">Download</a></body></html>');
+            window.location.href = mailtoLink;
+        } else {
+            alert('No file information available.');
+        }
     }
-}
-
-
 </script>
 <% var isDarkMode = typeof isDarkMode !== 'undefined' ? isDarkMode : false; %>
 <link id="theme-stylesheet" rel="stylesheet" href="<%= isDarkMode ? '/static/dark-styles.css' : '/static/styles.css' %>">
@@ -66,9 +85,14 @@
         </div>
     </div>
 
-    <div class="button-container">
-        <button class="btn btn-primary" onclick="downloadCurrentFile()">Download</button>
-        <button class="btn btn-secondary" onclick="emailCurrentFile()">Email</button>
+    <div class="button-section-wrapper">
+        <div class="button-section">
+            <h2>Download & Email</h2>
+            <div class="button-container">
+                <button class="btn btn-primary" onclick="downloadCurrentFile()">Download</button>
+                <button class="btn btn-secondary" onclick="emailCurrentFile()">Email</button>
+            </div>
+        </div>
     </div>
 
     <%- include('footer.ejs') %>
