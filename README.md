@@ -1,7 +1,7 @@
 
 # Email Me The Notes
 
-**A web app designed for students to easily upload, share, and receive notes via email.**
+**A web app designed for students to easily upload, share, and receive notes via email in a nice web interface.**
 
 ## Features
 - **Upload Notes**: Share your notes with ease by uploading them to the platform.
