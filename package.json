@@ -27,5 +27,9 @@
     "sanitize-html": "^2.13.1",
     "serve-favicon": "^2.5.0",
     "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "html-minifier": "^4.0.0",
+    "uglify-js": "^3.19.3"
   }
 }

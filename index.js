@@ -11,6 +11,7 @@ require('dotenv').config();
 const sanitizeHtml = require('sanitize-html');
 const expressSitemapXml = require('express-sitemap-xml')
 const favicon = require('serve-favicon');
+const minifyHTMLMiddleware = require('./minify-middleware');
 
 const fs = require('fs');
 const mammoth = require('mammoth');
@@ -61,6 +62,8 @@ app.use((req, res, next) => {
   res.locals.adsenseAccount = process.env.GOOGLE_ADSENSE_ACCOUNT;
   next();
 });
+
+app.use(minifyHTMLMiddleware);
 
 // Set the view engine to ejs
 app.set('view engine', 'ejs');
