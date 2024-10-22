@@ -58,17 +58,17 @@
     }
 
     function emailCurrentFile() {
-        var fileUrl = '<%= fileUrl %>';
-        var filename = '<%= filename %>';
-        if (fileUrl && filename) {
-            var baseUrl = window.location.origin + '/uploads/';
-            var encodedFileUrl = baseUrl + encodeURIComponent(fileUrl.split('/uploads/')[1]);
-            var mailtoLink = 'mailto:?subject=' + encodeURIComponent('Check out this file: ' + filename) + '&body=' + encodeURIComponent('<html><body><p>You can download the file from the following link:</p><a href="' + encodedFileUrl + '" style="display: inline-block; padding: 10px 20px; font-size: 16px; color: #fff; background-color: #007bff; text-decoration: none; border-radius: 5px;">Download</a></body></html>');
-            window.location.href = mailtoLink;
-        } else {
-            alert('No file information available.');
-        }
+    var fileUrl = '<%= fileUrl %>';
+    var filename = '<%= filename %>';
+    if (fileUrl && filename) {
+        var baseUrl = window.location.origin + '/uploads/';
+        var encodedFileUrl = baseUrl + encodeURIComponent(fileUrl.split('/uploads/')[1]);
+        var mailtoLink = 'mailto:?subject=' + encodeURIComponent('Check out this file: ' + filename) + '&body=' + encodeURIComponent('You can download the file from the following link: ' + encodedFileUrl);
+        window.location.href = mailtoLink;
+    } else {
+        alert('No file information available.');
     }
+}
 </script>
 <% var isDarkMode = typeof isDarkMode !== 'undefined' ? isDarkMode : false; %>
 <link id="theme-stylesheet" rel="stylesheet" href="<%= isDarkMode ? '/static/dark-styles.css' : '/static/styles.css' %>">
