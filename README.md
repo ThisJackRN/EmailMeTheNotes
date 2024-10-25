@@ -4,7 +4,8 @@
 ## What is this?
 
 - Email Me The Notes is a site I made to help lazy students like me and get a bunch of notes without having to go out and ask!
-  ![enter image description here](https://raw.githubusercontent.com/ThisJackRN/EmailMeTheNotes/81561d94df147948b4a6865de2e405f14e5199ac/static/logo.png)
+
+   ![enter image description here](https://raw.githubusercontent.com/ThisJackRN/EmailMeTheNotes/81561d94df147948b4a6865de2e405f14e5199ac/static/logo.png)
 
 ## NOTE: THIS IS BARELY A BETA
 
