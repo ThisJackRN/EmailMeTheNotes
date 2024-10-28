@@ -147,14 +147,20 @@ initializeDatabase();
 const signupLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // Limit each IP to 5 signup requests per `window` (here, per 15 minutes)
-  message: 'Too many signup attempts from this IP, please try again after 15 minutes'
+  handler: (req, res, next) => {
+    req.rateLimitExceeded = true;
+    next();
+  }
 });
 
 // Define the rate limiter for the login route
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Limit each IP to 10 login requests per `window` (here, per 15 minutes)
-  message: 'Too many login attempts from this IP, please try again after 15 minutes'
+  max: 5, // Limit each IP to 10 login requests per `window` (here, per 15 minutes)
+  handler: (req, res, next) => {
+    req.rateLimitExceeded = true;
+    next();
+  }
 });
 
 // Route to render the signup page
@@ -163,6 +169,12 @@ app.get('/signup', (req, res) => {
 });
 
 app.post('/signup', signupLimiter, async (req, res) => {
+  // Check if rate limit was exceeded
+  if (req.rateLimitExceeded) {
+    console.log("User Ratelimited", req.ip)
+    return res.render('signup', { title: 'Sign Up', error: 'You have exceeded the maximum number of signup attempts. Please try again later.' });
+  }
+
   // Sanitize input
   const username = sanitizeHtml(req.body.username);
   const password = sanitizeHtml(req.body.password);
@@ -219,6 +231,39 @@ app.post('/signup', signupLimiter, async (req, res) => {
       }
   } 
 });
+
+sgMail.setApiKey(process.env.SEND_API);
+
+function sendWelcomeEmail(to) {
+  // Email validation function
+  const isValidEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // Validate the email address
+  if (!isValidEmail(to)) {
+    console.error('Invalid email address:', to);
+    return; // Exit the function if the email is invalid
+  }
+
+  const msg = {
+    to,
+    from: process.env.SENDER_EMAIL, // Change to your verified sender
+    subject: 'Welcome to Email Me The Notes!',
+    text: 'Thank you for signing up!',
+    html: '<strong>Thank you for signing up! We hope you enjoy and upload a lot of notes!</strong>',
+  };
+
+  sgMail
+    .send(msg)
+    .then(() => {
+      console.log('Welcome email sent to:', to);
+    })
+    .catch((error) => {
+      console.error('Error sending welcome email:', error);
+    });
+  }
   
 app.get('/beta', (req, res) => {
   res.render('beta', { title: 'beta' });
@@ -231,6 +276,12 @@ app.get('/login', (req, res) => {
 });
 
 app.post('/login', loginLimiter, async (req, res) => {
+  // Check if rate limit was exceeded
+  if (req.rateLimitExceeded) {
+    console.log("User Ratelimited", req.ip)
+    return res.render('login', { title: 'Login', error: 'Too many login attempts from this IP, please try again after 15 minutes' });
+  }
+
   // Sanitize input
   const username = sanitizeHtml(req.body.username);
   const password = sanitizeHtml(req.body.password);
