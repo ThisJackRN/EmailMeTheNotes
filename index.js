@@ -12,6 +12,7 @@ const sanitizeHtml = require('sanitize-html');
 const expressSitemapXml = require('express-sitemap-xml')
 const favicon = require('serve-favicon');
 const minifyHTMLMiddleware = require('./minify-middleware');
+const rateLimit = require('express-rate-limit');
 
 const fs = require('fs');
 const mammoth = require('mammoth');
@@ -142,15 +143,26 @@ async function initializeDatabase() {
 }
 initializeDatabase();
 
+// Define the rate limiter for the signup route
+const signupLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 signup requests per `window` (here, per 15 minutes)
+  message: 'Too many signup attempts from this IP, please try again after 15 minutes'
+});
 
+// Define the rate limiter for the login route
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 10 login requests per `window` (here, per 15 minutes)
+  message: 'Too many login attempts from this IP, please try again after 15 minutes'
+});
 
 // Route to render the signup page
 app.get('/signup', (req, res) => {
   res.render('signup', { title: 'Sign Up' });
 });
 
-// Route for user signup
-app.post('/signup', async (req, res) => {
+app.post('/signup', signupLimiter, async (req, res) => {
   // Sanitize input
   const username = sanitizeHtml(req.body.username);
   const password = sanitizeHtml(req.body.password);
@@ -163,7 +175,8 @@ app.post('/signup', async (req, res) => {
   }
 
   // Validate password
-  const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;  if (!passwordRegex.test(password)) {
+  const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;  
+  if (!passwordRegex.test(password)) {
     return res.render('signup', { title: 'Sign Up', error: 'Password must be at least 8 characters long, contain at least one uppercase letter, and one special character' });
   }
 
@@ -206,51 +219,18 @@ app.post('/signup', async (req, res) => {
       }
   } 
 });
-
-sgMail.setApiKey(process.env.SEND_API);
-
-function sendWelcomeEmail(to) {
-  // Email validation function
-  const isValidEmail = (email) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
-  // Validate the email address
-  if (!isValidEmail(to)) {
-    console.error('Invalid email address:', to);
-    return; // Exit the function if the email is invalid
-  }
-
-  const msg = {
-    to,
-    from: process.env.SENDER_EMAIL, // Change to your verified sender
-    subject: 'Welcome to Email Me The Notes!',
-    text: 'Thank you for signing up!',
-    html: '<strong>Thank you for signing up! We hope you enjoy and upload a lot of notes!</strong>',
-  };
-
-  sgMail
-    .send(msg)
-    .then(() => {
-      console.log('Welcome email sent to:', to);
-    })
-    .catch((error) => {
-      console.error('Error sending welcome email:', error);
-    });
-  }
   
+app.get('/beta', (req, res) => {
+  res.render('beta', { title: 'beta' });
+});
+
 // Route to render the login page
 app.get('/login', (req, res) => {
   const error = req.query.error || null;
   res.render('login', { title: 'Login', error });
 });
 
-app.get('/beta', (req, res) => {
-  res.render('beta', { title: 'beta' });
-});
-
-app.post('/login', async (req, res) => {
+app.post('/login', loginLimiter, async (req, res) => {
   // Sanitize input
   const username = sanitizeHtml(req.body.username);
   const password = sanitizeHtml(req.body.password);
@@ -275,40 +255,31 @@ app.post('/login', async (req, res) => {
     const user = rows[0]; // Access the first row of the result
     //console.log('User fetched from database:', user);
 
-    // Ensure the user object contains the password property
-    if (!user.password) {
-      console.log('User password not found:', user);
+    // Compare the provided password with the stored hashed password
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
+      console.log('Password mismatch for user:', username);
       return res.redirect('/login?error=Invalid credentials');
     }
 
-    // Validate the password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    console.log('Password validation result:', isPasswordValid);
+    // Set the user session
+    req.session.userId = user.id.toString(); // Convert BigInt to string
 
-    if (!isPasswordValid) {
-      console.log('Invalid password for user:', username);
-      return res.redirect('/login?error=Invalid credentials');
-    }
-
-    // Set the user ID and user data in the session
-    req.session.userId = user.id.toString(); // Convert BigInt to string if necessary
-    req.session.user = {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      isAdmin: user.isAdmin,
-    }; // Store relevant user information in the session
-    console.log('Session userId set:', req.session.userId);
-
-    res.redirect('/'); // Redirect to home page after successful login
+    // Redirect to the dashboard or home page after successful login
+    res.redirect('/');
   } catch (err) {
     console.error('Error during login:', err);
-    res.redirect('/login?error=An error occurred during login');
+    res.render('login', { title: 'Login', error: 'An error occurred during login. Please try again later.' });
   } finally {
-    if (conn) conn.release(); // Always release the connection back to the pool
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseErr) {
+        console.error('Error releasing the connection:', releaseErr);
+      }
+    }
   }
 });
-
 
 
 // Route for user logout
