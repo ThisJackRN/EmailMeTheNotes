@@ -64,6 +64,9 @@ app.use((req, res, next) => {
   next();
 });
 
+// Enable trust proxy
+app.set('trust proxy', true);
+
 app.use(minifyHTMLMiddleware);
 
 // Set the view engine to ejs
@@ -187,9 +190,8 @@ app.post('/signup', signupLimiter, async (req, res) => {
   }
 
   // Validate password
-  const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;  
-  if (!passwordRegex.test(password)) {
-    return res.render('signup', { title: 'Sign Up', error: 'Password must be at least 8 characters long, contain at least one uppercase letter, and one special character' });
+  if (password.length < 8) {
+    return res.render('signup', { title: 'Sign Up', error: 'Password must be at least 8 characters long' });
   }
 
   let conn;
