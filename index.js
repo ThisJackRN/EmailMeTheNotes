@@ -94,12 +94,20 @@ app.use(session({
 // Middleware to parse request bodies
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Define a route to render an EJS page
+
 app.get('/', (req, res) => {
   const isAuthenticated = req.session.userId ? true : false;
   const successMessage = req.session.successMessage || null;
   req.session.successMessage = null; // Clear the message after displaying it
-  res.render('index', { title: 'Home', isLoggedIn: isAuthenticated, successMessage });
+  res.render('index', { title: 'Welcome', isLoggedIn: isAuthenticated, successMessage });
+});
+
+// Define a route to render an EJS page
+app.get('/home', (req, res) => {
+  const isAuthenticated = req.session.userId ? true : false;
+  const successMessage = req.session.successMessage || null;
+  req.session.successMessage = null; // Clear the message after displaying it
+  res.render('home', { title: 'Home', isLoggedIn: isAuthenticated, successMessage });
 });
 
 

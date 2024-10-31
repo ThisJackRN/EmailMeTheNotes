@@ -1,0 +1,124 @@
+<%- include('header.ejs') %>
+
+<div class="file-system" id="file-system">
+    <!-- Folders will be dynamically inserted here -->
+</div>
+
+<!-- Include Bootstrap CSS and JS for tooltips -->
+<link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+
+<style>
+    .file-system {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        padding: 20px;
+        justify-content: center; /* Center align the folders */
+    }
+
+    .folder {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 150px;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        text-align: center;
+        transition: transform 0.3s, background-color 0.3s;
+    }
+
+    .folder img {
+        width: 75px;
+        height: 75px;
+        margin-bottom: 10px;
+    }
+
+    .folder:hover {
+        transform: translateY(-3px);
+        background-color: #e9ecef;
+    }
+
+    .dark_folder {
+        background-color: #444;
+        color: white;
+    }
+
+    .dark_folder:hover {
+        background-color: #555;
+    }
+
+    .dark_folder span {
+        color: white;
+    }
+</style>
+
+<!-- Removed duplicate script -->
+
+<script>
+        // Define viewDocx function in the global scope
+    function viewDocx(filename) {
+        window.location.href = `/view/${filename}`;
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const fileIcons = {
+            'pdf': '/static/icons/pdf.png',
+            'doc': '/static/icons/doc.png',
+            'docx': '/static/icons/word.png',
+            'jpg': '/static/icons/jpg-icon.png',
+            'png': '/static/icons/png-icon.png',
+            'default': '/static/icons/word.png'
+        };
+
+        function getFileIcon(extension) {
+            return fileIcons[extension] || fileIcons['default'];
+        }
+
+        fetch('/api/latest-uploads')
+            .then(response => response.json())
+            .then(data => {
+                const fileSystem = document.getElementById('file-system');
+                if (data.length === 0) {
+                    const noFilesMessage = document.createElement('div');
+                    noFilesMessage.className = 'no-files-message';
+                    noFilesMessage.textContent = 'No... files? :(';
+                    fileSystem.appendChild(noFilesMessage);
+                } else {
+                    data.forEach(file => {
+                        const fileExtension = file.name.split('.').pop().toLowerCase();
+                        const folderDiv = document.createElement('div');
+                        folderDiv.className = 'folder';
+                        folderDiv.innerHTML = `
+                            <a href="/download/${file.name}" download data-toggle="tooltip" title="${file.description ? file.description : 'No description available'}">
+                                <img src="${getFileIcon(fileExtension)}" alt="File Icon">
+                                <span>${file.name}</span>
+                                <span style="font-size: 10px; color: #666;">${file.username ? file.username : 'Unknown'}</span>
+                            </a>
+                            ${fileExtension === 'docx' ? `<button class="view-button" onclick="viewDocx('${file.name}')">View</button>` : ''}
+                        `;
+                        fileSystem.appendChild(folderDiv);
+                    });
+                }
+
+                // Apply dark mode if enabled
+                if (localStorage.getItem('darkMode') === 'enabled' && window.applyDarkModeToFolders) {
+                    window.applyDarkModeToFolders();
+                }
+
+                // Initialize tooltips
+                $('[data-toggle="tooltip"]').tooltip();
+            })
+            .catch(error => console.error('Error fetching latest uploads:', error));
+
+        function viewDocx(filename) {
+            window.location.href = `/view/${filename}`;
+        }
+    });
+</script>
+
+<%- include('footer.ejs') %>
