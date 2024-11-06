@@ -6,7 +6,11 @@ function minifyHTMLContent(content) {
         collapseWhitespace: true,
         removeComments: true,
         minifyCSS: true,
-        minifyJS: true
+        minifyJS: true,
+        removeEmptyAttributes: true,
+        removeRedundantAttributes: true,
+        useShortDoctype: true,
+        removeOptionalTags: true
     });
 }
 
